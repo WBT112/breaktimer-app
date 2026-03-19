@@ -2,26 +2,24 @@ import { Button } from "@/components/ui/button";
 import { motion } from "framer-motion";
 import moment from "moment";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Settings, SoundType } from "../../../types/settings";
+import { BreakDefinition, SoundType } from "../../../types/settings";
 import { TimeRemaining } from "./utils";
 
 interface BreakProgressProps {
-  breakMessage: string;
-  breakTitle: string;
+  breakDefinition: BreakDefinition;
+  breakLengthSeconds: number;
   endBreakEnabled: boolean;
   onEndBreak: () => void;
-  settings: Settings;
   textColor: string;
   isClosing?: boolean;
   sharedBreakEndTime?: number | null;
 }
 
 export function BreakProgress({
-  breakMessage,
-  breakTitle,
+  breakDefinition,
+  breakLengthSeconds,
   endBreakEnabled,
   onEndBreak,
-  settings,
   textColor,
   isClosing = false,
   sharedBreakEndTime = null,
@@ -47,24 +45,23 @@ export function BreakProgress({
     // Only play start sound from primary window and only once per break
     if (
       isPrimaryWindow &&
-      settings.soundType !== SoundType.None &&
+      breakDefinition.soundType !== SoundType.None &&
       !soundPlayedRef.current
     ) {
       soundPlayedRef.current = true;
       ipcRenderer.invokeStartSound(
-        settings.soundType,
-        settings.breakSoundVolume,
+        breakDefinition.soundType,
+        breakDefinition.breakSoundVolume,
       );
     }
 
-    (async () => {
+    (() => {
       // Use shared end time if available (from synchronized break start), otherwise calculate it
       let breakEndTime: moment.Moment;
       if (sharedBreakEndTime) {
         breakEndTime = moment(sharedBreakEndTime);
       } else {
-        const lengthSeconds = await ipcRenderer.invokeGetBreakLength();
-        breakEndTime = moment().add(lengthSeconds, "seconds");
+        breakEndTime = moment().add(breakLengthSeconds, "seconds");
       }
 
       const startMsRemaining = moment(breakEndTime).diff(
@@ -108,7 +105,8 @@ export function BreakProgress({
     };
   }, [
     onEndBreak,
-    settings,
+    breakDefinition,
+    breakLengthSeconds,
     breakStartTime,
     isPrimaryWindow,
     sharedBreakEndTime,
@@ -137,7 +135,7 @@ export function BreakProgress({
           className="text-3xl font-semibold tracking-tight"
           style={{ color: textColor }}
         >
-          {breakTitle}
+          {breakDefinition.breakTitle}
         </h1>
         {endBreakEnabled && (
           <Button
@@ -159,7 +157,7 @@ export function BreakProgress({
         className="text-lg opacity-80 font-medium whitespace-pre-line"
         style={{ color: textColor }}
       >
-        {breakMessage}
+        {breakDefinition.breakMessage}
       </div>
 
       <div className="w-full">

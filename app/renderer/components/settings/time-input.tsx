@@ -5,6 +5,7 @@ export interface TimeInputProps {
   value: number; // Value in seconds
   onChange: (value: number) => void;
   precision?: "minutes" | "seconds"; // Default is "minutes"
+  maxHours?: number;
   disabled?: boolean;
   className?: string;
 }
@@ -13,6 +14,7 @@ export default function TimeInput({
   value,
   onChange,
   precision = "minutes",
+  maxHours = 23,
   disabled = false,
   className,
 }: TimeInputProps) {
@@ -55,7 +57,7 @@ export default function TimeInput({
           ? prev.seconds
           : seconds.toString().padStart(2, "0"),
     }));
-  }, [value, precision, focusedField]);
+  }, [focusedField, maxHours, precision, value]);
 
   const handleChange = (
     field: "hours" | "minutes" | "seconds",
@@ -65,7 +67,7 @@ export default function TimeInput({
     setInternalValue(updated);
 
     // Convert back to total seconds with validation
-    const hours = Math.min(23, Math.max(0, parseInt(updated.hours) || 0));
+    const hours = Math.min(maxHours, Math.max(0, parseInt(updated.hours) || 0));
     const minutes = Math.min(59, Math.max(0, parseInt(updated.minutes) || 0));
     const seconds =
       precision === "seconds"
@@ -82,7 +84,7 @@ export default function TimeInput({
   ) => {
     const current = parseInt(internalValue[field]) || 0;
     let max = 59;
-    if (field === "hours") max = 23;
+    if (field === "hours") max = maxHours;
 
     let newValue;
     if (direction === "up") {
@@ -182,8 +184,10 @@ export default function TimeInput({
     const seconds =
       precision === "seconds" ? parseInt(updated.seconds) || 0 : 0;
 
+    const maxTotalSeconds =
+      maxHours * 3600 + 59 * 60 + (precision === "seconds" ? 59 : 0);
     const totalSeconds = Math.min(
-      86399,
+      maxTotalSeconds,
       Math.max(0, hours * 3600 + minutes * 60 + seconds),
     );
     onChange(totalSeconds);

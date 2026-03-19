@@ -1,14 +1,8 @@
 import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { useEffect, useMemo, useState } from "react";
-import {
-  NotificationType,
-  Settings,
-  SoundType,
-  TrayTextMode,
-} from "../../types/settings";
+import { BreakDefinition, Settings, TrayTextMode } from "../../types/settings";
 import { toast } from "../toaster";
 import AdvancedCard from "./settings/advanced-card";
-import AudioCard from "./settings/audio-card";
 import BackdropCard from "./settings/backdrop-card";
 import BreaksCard from "./settings/breaks-card";
 import SettingsCard from "./settings/settings-card";
@@ -47,37 +41,18 @@ export default function SettingsEl() {
     return null;
   }
 
-  const handleNotificationTypeChange = (value: string): void => {
-    const notificationType = value as NotificationType;
-    setSettingsDraft({ ...settingsDraft, notificationType });
-  };
-
   const handleDateChange = (fieldName: string, newVal: Date): void => {
     const seconds =
       newVal.getHours() * 3600 + newVal.getMinutes() * 60 + newVal.getSeconds();
 
-    let secondsField: keyof Settings;
-    if (fieldName === "breakFrequency") {
-      secondsField = "breakFrequencySeconds";
-    } else if (fieldName === "breakLength") {
-      secondsField = "breakLengthSeconds";
-    } else if (fieldName === "postponeLength") {
-      secondsField = "postponeLengthSeconds";
-    } else if (fieldName === "idleResetLength") {
-      secondsField = "idleResetLengthSeconds";
-    } else {
+    if (fieldName !== "idleResetLength") {
       return;
     }
 
     setSettingsDraft({
       ...settingsDraft,
-      [secondsField]: seconds,
+      idleResetLengthSeconds: seconds,
     });
-  };
-
-  const handlePostponeLimitChange = (value: string): void => {
-    const postponeLimit = Number(value);
-    setSettingsDraft({ ...settingsDraft, postponeLimit });
   };
 
   const handleTextChange = (
@@ -116,13 +91,6 @@ export default function SettingsEl() {
     });
   };
 
-  const handleSoundTypeChange = (soundType: SoundType): void => {
-    setSettingsDraft({
-      ...settingsDraft,
-      soundType,
-    });
-  };
-
   const handleTrayTextModeChange = (value: string): void => {
     if (value === "hidden") {
       setSettingsDraft({
@@ -136,6 +104,15 @@ export default function SettingsEl() {
       ...settingsDraft,
       trayTextEnabled: true,
       trayTextMode: value as TrayTextMode,
+    });
+  };
+
+  const handleBreakDefinitionsChange = (
+    breakDefinitions: BreakDefinition[],
+  ): void => {
+    setSettingsDraft({
+      ...settingsDraft,
+      breakDefinitions,
     });
   };
 
@@ -156,10 +133,8 @@ export default function SettingsEl() {
           <TabsContent value="break-settings" className="m-0 space-y-8">
             <BreaksCard
               settingsDraft={settingsDraft}
-              onNotificationTypeChange={handleNotificationTypeChange}
-              onDateChange={handleDateChange}
-              onTextChange={handleTextChange}
               onSwitchChange={handleSwitchChange}
+              onBreakDefinitionsChange={handleBreakDefinitionsChange}
             />
 
             <SmartBreaksCard
@@ -171,8 +146,6 @@ export default function SettingsEl() {
             <SnoozeCard
               settingsDraft={settingsDraft}
               onSwitchChange={handleSwitchChange}
-              onDateChange={handleDateChange}
-              onPostponeLimitChange={handlePostponeLimitChange}
             />
 
             <SkipCard
@@ -209,12 +182,6 @@ export default function SettingsEl() {
               settingsDraft={settingsDraft}
               onTextChange={handleTextChange}
               onResetColors={handleResetColors}
-            />
-
-            <AudioCard
-              settingsDraft={settingsDraft}
-              onSoundTypeChange={handleSoundTypeChange}
-              onSliderChange={handleSliderChange}
             />
 
             <BackdropCard

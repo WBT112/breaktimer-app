@@ -1,11 +1,15 @@
 import { motion } from "framer-motion";
 import { useCallback, useEffect, useState } from "react";
+import { ActiveBreakContext } from "../../types/breaks";
 import { Settings, SoundType } from "../../types/settings";
 import { BreakNotification } from "./break/break-notification";
 import { BreakProgress } from "./break/break-progress";
 import { createDarkerRgba } from "./break/utils";
 
 export default function Break() {
+  const [activeBreak, setActiveBreak] = useState<ActiveBreakContext | null>(
+    null,
+  );
   const [settings, setSettings] = useState<Settings | null>(null);
   const [countingDown, setCountingDown] = useState(true);
   const [allowPostpone, setAllowPostpone] = useState<boolean | null>(null);
@@ -20,17 +24,19 @@ export default function Break() {
 
   useEffect(() => {
     const init = async () => {
-      const [allowPostpone, settings, timeSince, startedFromTray] =
+      const [allowPostpone, settings, timeSince, startedFromTray, activeBreak] =
         await Promise.all([
           ipcRenderer.invokeGetAllowPostpone(),
           ipcRenderer.invokeGetSettings() as Promise<Settings>,
           ipcRenderer.invokeGetTimeSinceLastBreak(),
           ipcRenderer.invokeWasStartedFromTray(),
+          ipcRenderer.invokeGetActiveBreak() as Promise<ActiveBreakContext>,
         ]);
 
       setAllowPostpone(allowPostpone);
       setSettings(settings);
       setTimeSinceLastBreak(timeSince);
+      setActiveBreak(activeBreak);
 
       // Skip the countdown if immediately start breaks is enabled or started from tray
       if (settings.immediatelyStartBreaks || startedFromTray) {
@@ -103,15 +109,22 @@ export default function Break() {
     const windowId = urlParams.get("windowId");
     const isPrimary = windowId === "0" || windowId === null;
 
-    if (isPrimary && settings && settings?.soundType !== SoundType.None) {
-      ipcRenderer.invokeEndSound(settings.soundType, settings.breakSoundVolume);
+    if (
+      isPrimary &&
+      activeBreak &&
+      activeBreak.breakDefinition.soundType !== SoundType.None
+    ) {
+      ipcRenderer.invokeEndSound(
+        activeBreak.breakDefinition.soundType,
+        activeBreak.breakDefinition.breakSoundVolume,
+      );
     }
 
     // Broadcast to all windows to start their closing animations
     await ipcRenderer.invokeBreakEnd();
-  }, [settings]);
+  }, [activeBreak]);
 
-  if (settings === null || allowPostpone === null) {
+  if (settings === null || allowPostpone === null || activeBreak === null) {
     return null;
   }
 
@@ -123,6 +136,8 @@ export default function Break() {
       >
         {ready && !closing && (
           <BreakNotification
+            breakMessage={activeBreak.breakDefinition.breakMessage}
+            breakTitle={activeBreak.breakDefinition.breakTitle}
             onCountdownOver={handleCountdownOver}
             onPostponeBreak={handlePostponeBreak}
             onSkipBreak={handleSkipBreak}
@@ -180,11 +195,10 @@ export default function Break() {
       >
         {ready && (
           <BreakProgress
-            breakMessage={settings.breakMessage}
-            breakTitle={settings.breakTitle}
+            breakDefinition={activeBreak.breakDefinition}
+            breakLengthSeconds={activeBreak.breakDefinition.breakLengthSeconds}
             endBreakEnabled={settings.endBreakEnabled}
             onEndBreak={handleEndBreak}
-            settings={settings}
             textColor={settings.textColor}
             isClosing={closing}
             sharedBreakEndTime={sharedBreakEndTime}

@@ -14,6 +14,12 @@ export default function BackdropCard({
   onSwitchChange,
   onSliderChange,
 }: BackdropCardProps) {
+  const hasPopupBreaks = settingsDraft.breakDefinitions.some(
+    (breakDefinition) =>
+      breakDefinition.enabled &&
+      breakDefinition.notificationType === NotificationType.Popup,
+  );
+
   return (
     <SettingsCard
       title="Backdrop"
@@ -21,7 +27,7 @@ export default function BackdropCard({
       toggle={{
         checked: settingsDraft.showBackdrop,
         onCheckedChange: (checked) => onSwitchChange("showBackdrop", checked),
-        disabled: settingsDraft.notificationType !== NotificationType.Popup,
+        disabled: !hasPopupBreaks,
       }}
     >
       <div className="space-y-2">

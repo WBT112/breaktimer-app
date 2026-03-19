@@ -8,6 +8,8 @@ const GRACE_PERIOD_MS = 60000;
 const TOTAL_COUNTDOWN_MS = 120000;
 
 interface BreakNotificationProps {
+  breakMessage: string;
+  breakTitle: string;
   onCountdownOver: () => void;
   onPostponeBreak: () => void;
   onSkipBreak: () => void;
@@ -20,6 +22,8 @@ interface BreakNotificationProps {
 }
 
 export function BreakNotification({
+  breakMessage,
+  breakTitle,
   onCountdownOver,
   onPostponeBreak,
   onSkipBreak,
@@ -100,10 +104,22 @@ export function BreakNotification({
             className="text-lg font-semibold tracking-tight"
             style={{ color: textColor }}
           >
+            {breakTitle}
+          </h2>
+          <p
+            className="text-sm opacity-80 font-medium whitespace-pre-line"
+            style={{ color: textColor }}
+          >
+            {breakMessage}
+          </p>
+          <p
+            className="text-sm opacity-80 font-medium"
+            style={{ color: textColor }}
+          >
             {phase === "grace"
               ? "Start your break when ready..."
               : `Break starting in ${secondsRemaining}s...`}
-          </h2>
+          </p>
           {timeSinceLastBreak !== null && (
             <p
               className="text-sm opacity-80 font-medium"

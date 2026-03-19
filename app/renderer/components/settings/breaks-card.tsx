@@ -1,121 +1,82 @@
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { Button } from "@/components/ui/button";
+import { Plus } from "lucide-react";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
-import { NotificationType, Settings } from "../../../types/settings";
+  BreakDefinition,
+  createDefaultBreakDefinition,
+  Settings,
+} from "../../../types/settings";
+import BreakDefinitionCard from "./break-definition-card";
 import SettingsCard from "./settings-card";
-import TimeInput from "./time-input";
 
 interface BreaksCardProps {
   settingsDraft: Settings;
-  onNotificationTypeChange: (value: string) => void;
-  onDateChange: (fieldName: string, newVal: Date) => void;
-  onTextChange: (
-    field: string,
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
-  ) => void;
   onSwitchChange: (field: string, checked: boolean) => void;
+  onBreakDefinitionsChange: (breakDefinitions: BreakDefinition[]) => void;
 }
 
 export default function BreaksCard({
   settingsDraft,
-  onNotificationTypeChange,
-  onDateChange,
-  onTextChange,
   onSwitchChange,
+  onBreakDefinitionsChange,
 }: BreaksCardProps) {
+  const handleBreakDefinitionChange = (
+    definitionId: string,
+    nextDefinition: BreakDefinition,
+  ): void => {
+    onBreakDefinitionsChange(
+      settingsDraft.breakDefinitions.map((breakDefinition) =>
+        breakDefinition.id === definitionId ? nextDefinition : breakDefinition,
+      ),
+    );
+  };
+
+  const handleAddBreakDefinition = (): void => {
+    onBreakDefinitionsChange([
+      ...settingsDraft.breakDefinitions,
+      createDefaultBreakDefinition(),
+    ]);
+  };
+
+  const handleDeleteBreakDefinition = (definitionId: string): void => {
+    onBreakDefinitionsChange(
+      settingsDraft.breakDefinitions.filter(
+        (breakDefinition) => breakDefinition.id !== definitionId,
+      ),
+    );
+  };
+
   return (
     <SettingsCard
       title="Breaks"
+      helperText="Create multiple breaks with independent schedules, content, snooze, and sound."
       toggle={{
         checked: settingsDraft.breaksEnabled,
         onCheckedChange: (checked) => onSwitchChange("breaksEnabled", checked),
       }}
     >
       <div className="space-y-4">
-        <div className="grid grid-cols-3 gap-4">
-          <div className="space-y-2">
-            <Label className="text-sm font-medium">Type</Label>
-            <Select
-              value={settingsDraft.notificationType}
-              onValueChange={onNotificationTypeChange}
-              disabled={!settingsDraft.breaksEnabled}
-            >
-              <SelectTrigger style={{ width: 145 }}>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={NotificationType.Popup}>
-                  Popup break
-                </SelectItem>
-                <SelectItem value={NotificationType.Notification}>
-                  Simple notification
-                </SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-2">
-            <Label className="text-sm font-medium">Frequency</Label>
-            <TimeInput
-              precision="seconds"
-              value={settingsDraft.breakFrequencySeconds}
-              onChange={(seconds) => {
-                const date = new Date();
-                date.setHours(Math.floor(seconds / 3600));
-                date.setMinutes(Math.floor((seconds % 3600) / 60));
-                date.setSeconds(seconds % 60);
-                onDateChange("breakFrequency", date);
-              }}
-              disabled={!settingsDraft.breaksEnabled}
-            />
-          </div>
-          <div className="space-y-2">
-            <Label className="text-sm font-medium">Length</Label>
-            <TimeInput
-              precision="seconds"
-              value={settingsDraft.breakLengthSeconds}
-              onChange={(seconds) => {
-                const date = new Date();
-                date.setHours(Math.floor(seconds / 3600));
-                date.setMinutes(Math.floor((seconds % 3600) / 60));
-                date.setSeconds(seconds % 60);
-                onDateChange("breakLength", date);
-              }}
-              disabled={
-                !settingsDraft.breaksEnabled ||
-                settingsDraft.notificationType !== NotificationType.Popup
-              }
-            />
-          </div>
-        </div>
-        <div className="space-y-2">
-          <Label className="text-sm font-medium">Title</Label>
-          <Input
-            id="break-title"
-            className="text-sm"
-            value={settingsDraft.breakTitle}
-            onChange={onTextChange.bind(null, "breakTitle")}
-            disabled={!settingsDraft.breaksEnabled}
+        {settingsDraft.breakDefinitions.map((breakDefinition, index) => (
+          <BreakDefinitionCard
+            key={breakDefinition.id}
+            breakDefinition={breakDefinition}
+            breaksEnabled={settingsDraft.breaksEnabled}
+            index={index}
+            onChange={(nextDefinition) =>
+              handleBreakDefinitionChange(breakDefinition.id, nextDefinition)
+            }
+            onDelete={() => handleDeleteBreakDefinition(breakDefinition.id)}
           />
-        </div>
-        <div className="space-y-2">
-          <Label className="text-sm font-medium">Message</Label>
-          <Textarea
-            id="break-message"
-            className="text-sm resize-none"
-            rows={3}
-            value={settingsDraft.breakMessage}
-            onChange={onTextChange.bind(null, "breakMessage")}
-            disabled={!settingsDraft.breaksEnabled}
-            placeholder="Enter your break message..."
-          />
-        </div>
+        ))}
+
+        <Button
+          type="button"
+          variant="outline"
+          className="w-full"
+          onClick={handleAddBreakDefinition}
+        >
+          <Plus className="h-4 w-4" />
+          Add break
+        </Button>
       </div>
     </SettingsCard>
   );

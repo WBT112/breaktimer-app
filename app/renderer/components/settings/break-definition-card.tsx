@@ -1,0 +1,266 @@
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Slider } from "@/components/ui/slider";
+import { Switch } from "@/components/ui/switch";
+import { Textarea } from "@/components/ui/textarea";
+import { Trash2 } from "lucide-react";
+import {
+  BreakDefinition,
+  NotificationType,
+  SoundType,
+} from "../../../types/settings";
+import { SoundSelect } from "../sound-select";
+import TimeInput from "./time-input";
+
+interface BreakDefinitionCardProps {
+  breakDefinition: BreakDefinition;
+  breaksEnabled: boolean;
+  index: number;
+  onChange: (breakDefinition: BreakDefinition) => void;
+  onDelete: () => void;
+}
+
+function getBreakLabel(
+  breakDefinition: BreakDefinition,
+  index: number,
+): string {
+  const title = breakDefinition.breakTitle.trim();
+  return title || `Break ${index + 1}`;
+}
+
+export default function BreakDefinitionCard({
+  breakDefinition,
+  breaksEnabled,
+  index,
+  onChange,
+  onDelete,
+}: BreakDefinitionCardProps) {
+  const disabled = !breaksEnabled || !breakDefinition.enabled;
+
+  const updateBreakDefinition = (updates: Partial<BreakDefinition>): void => {
+    onChange({
+      ...breakDefinition,
+      ...updates,
+    });
+  };
+
+  return (
+    <div className="rounded-lg border border-border bg-background/60 p-4 space-y-4">
+      <div className="flex items-center justify-between gap-4">
+        <div>
+          <h4 className="text-sm font-semibold">
+            {getBreakLabel(breakDefinition, index)}
+          </h4>
+          <p className="text-sm text-muted-foreground">
+            Configure this break&apos;s schedule, message, snooze, and sound.
+          </p>
+        </div>
+        <div className="flex items-center gap-3">
+          <Switch
+            checked={breakDefinition.enabled}
+            onCheckedChange={(checked) =>
+              updateBreakDefinition({ enabled: checked })
+            }
+            disabled={!breaksEnabled}
+          />
+          <Button
+            type="button"
+            size="icon"
+            variant="ghost"
+            onClick={onDelete}
+            aria-label={`Delete ${getBreakLabel(breakDefinition, index)}`}
+          >
+            <Trash2 className="h-4 w-4" />
+          </Button>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-3 gap-4">
+        <div className="space-y-2">
+          <Label className="text-sm font-medium">Type</Label>
+          <Select
+            value={breakDefinition.notificationType}
+            onValueChange={(value) =>
+              updateBreakDefinition({
+                notificationType: value as NotificationType,
+              })
+            }
+            disabled={disabled}
+          >
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={NotificationType.Popup}>
+                Popup break
+              </SelectItem>
+              <SelectItem value={NotificationType.Notification}>
+                Simple notification
+              </SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-2">
+          <Label className="text-sm font-medium">Start time</Label>
+          <TimeInput
+            value={breakDefinition.startTimeSeconds}
+            onChange={(startTimeSeconds) =>
+              updateBreakDefinition({ startTimeSeconds })
+            }
+            precision="minutes"
+            disabled={disabled}
+          />
+        </div>
+        <div className="space-y-2">
+          <Label className="text-sm font-medium">Interval</Label>
+          <TimeInput
+            value={breakDefinition.intervalSeconds}
+            onChange={(intervalSeconds) =>
+              updateBreakDefinition({ intervalSeconds })
+            }
+            precision="seconds"
+            maxHours={24}
+            disabled={disabled}
+          />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-3 gap-4">
+        <div className="space-y-2">
+          <Label className="text-sm font-medium">Daily limit</Label>
+          <Input
+            type="number"
+            min={1}
+            placeholder="No limit"
+            value={breakDefinition.maxOccurrencesPerDay ?? ""}
+            onChange={(event) => {
+              const rawValue = event.target.value.trim();
+              const numericValue = Number(rawValue);
+              updateBreakDefinition({
+                maxOccurrencesPerDay:
+                  rawValue === "" || !Number.isFinite(numericValue)
+                    ? null
+                    : Math.max(1, numericValue),
+              });
+            }}
+            disabled={disabled}
+          />
+        </div>
+        <div className="space-y-2">
+          <Label className="text-sm font-medium">Length</Label>
+          <TimeInput
+            value={breakDefinition.breakLengthSeconds}
+            onChange={(breakLengthSeconds) =>
+              updateBreakDefinition({ breakLengthSeconds })
+            }
+            precision="seconds"
+            disabled={
+              disabled ||
+              breakDefinition.notificationType !== NotificationType.Popup
+            }
+          />
+        </div>
+        <div className="space-y-2">
+          <Label className="text-sm font-medium">Snooze length</Label>
+          <TimeInput
+            value={breakDefinition.postponeLengthSeconds}
+            onChange={(postponeLengthSeconds) =>
+              updateBreakDefinition({ postponeLengthSeconds })
+            }
+            precision="seconds"
+            disabled={disabled}
+          />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <Label className="text-sm font-medium">Snooze limit</Label>
+          <Select
+            value={breakDefinition.postponeLimit.toString()}
+            onValueChange={(value) =>
+              updateBreakDefinition({ postponeLimit: Number(value) })
+            }
+            disabled={disabled}
+          >
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="1">1</SelectItem>
+              <SelectItem value="2">2</SelectItem>
+              <SelectItem value="3">3</SelectItem>
+              <SelectItem value="4">4</SelectItem>
+              <SelectItem value="5">5</SelectItem>
+              <SelectItem value="0">No limit</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-2">
+          <Label className="text-sm font-medium">Break sound</Label>
+          <SoundSelect
+            value={breakDefinition.soundType}
+            onChange={(soundType) => updateBreakDefinition({ soundType })}
+            volume={breakDefinition.breakSoundVolume}
+            disabled={disabled}
+          />
+        </div>
+      </div>
+
+      <div className="space-y-2">
+        <Label className="text-sm font-medium">Break sound volume</Label>
+        <div className="px-2">
+          <Slider
+            min={0}
+            max={1}
+            step={0.01}
+            value={[breakDefinition.breakSoundVolume]}
+            onValueChange={(values) =>
+              updateBreakDefinition({ breakSoundVolume: values[0] })
+            }
+            disabled={disabled || breakDefinition.soundType === SoundType.None}
+          />
+          <div className="flex justify-between text-sm text-muted-foreground mt-1">
+            <span>0%</span>
+            <span>{Math.round(breakDefinition.breakSoundVolume * 100)}%</span>
+            <span>100%</span>
+          </div>
+        </div>
+      </div>
+
+      <div className="space-y-2">
+        <Label className="text-sm font-medium">Title</Label>
+        <Input
+          className="text-sm"
+          value={breakDefinition.breakTitle}
+          onChange={(event) =>
+            updateBreakDefinition({ breakTitle: event.target.value })
+          }
+          disabled={disabled}
+        />
+      </div>
+
+      <div className="space-y-2">
+        <Label className="text-sm font-medium">Message</Label>
+        <Textarea
+          className="text-sm resize-none"
+          rows={3}
+          value={breakDefinition.breakMessage}
+          onChange={(event) =>
+            updateBreakDefinition({ breakMessage: event.target.value })
+          }
+          disabled={disabled}
+          placeholder="Enter your break message..."
+        />
+      </div>
+    </div>
+  );
+}

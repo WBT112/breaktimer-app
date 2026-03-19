@@ -1,33 +1,140 @@
 import { PowerMonitor } from "electron";
 import log from "electron-log";
 import moment from "moment";
-import { BreakTime } from "../../types/breaks";
+import {
+  ActiveBreakContext,
+  BreakTime,
+  ScheduledBreakOccurrence,
+} from "../../types/breaks";
 import { IpcChannel } from "../../types/ipc";
 import {
+  BreakDefinition,
   DayConfig,
   NotificationType,
   Settings,
   SoundType,
 } from "../../types/settings";
+import {
+  BreakDefinitionState,
+  consumeNextOccurrence,
+  createDefinitionState,
+  deferStateForIdle,
+  getDayStartMs,
+  getNextDueAtMs,
+  sortOccurrencesByDueAt,
+  shiftStateAfterIdle,
+} from "./break-schedule";
 import { sendIpc } from "./ipc";
 import { showNotification } from "./notifications";
 import { getSettings } from "./store";
 import { buildTray } from "./tray";
 import { createBreakWindows } from "./windows";
 
-// Helper function to strip HTML tags from text
 function stripHtml(html: string): string {
-  // First convert <br> tags to spaces
   return html
     .replace(/<br\s*\/?>/gi, " ")
     .replace(/<[^>]*>/g, "")
     .trim();
 }
 
+function zeroPad(value: number): string {
+  const output = String(value);
+  return output.length === 1 ? `0${output}` : output;
+}
+
+function getEnabledBreakDefinitions(settings: Settings): BreakDefinition[] {
+  return settings.breakDefinitions.filter((definition) => definition.enabled);
+}
+
+function sortDueQueue(): void {
+  dueQueue = sortOccurrencesByDueAt(dueQueue);
+}
+
+function getDefinitionState(
+  definition: BreakDefinition,
+  nowMs: number,
+): BreakDefinitionState {
+  const existingState = breakStates.get(definition.id);
+  const dayStartMs = getDayStartMs(nowMs);
+
+  if (existingState && existingState.dayStartMs === dayStartMs) {
+    return existingState;
+  }
+
+  const nextState = createDefinitionState(definition, nowMs);
+  breakStates.set(definition.id, nextState);
+  return nextState;
+}
+
+function setDefinitionState(state: BreakDefinitionState): void {
+  breakStates.set(state.definitionId, state);
+}
+
+function syncDefinitionStates(settings: Settings, nowMs: number): void {
+  const activeDefinitionIds = new Set(
+    getEnabledBreakDefinitions(settings).map((definition) => definition.id),
+  );
+
+  for (const definitionId of breakStates.keys()) {
+    if (!activeDefinitionIds.has(definitionId)) {
+      breakStates.delete(definitionId);
+    }
+  }
+
+  dueQueue = dueQueue.filter((occurrence) =>
+    activeDefinitionIds.has(occurrence.breakDefinitionId),
+  );
+
+  for (const definition of getEnabledBreakDefinitions(settings)) {
+    getDefinitionState(definition, nowMs);
+  }
+}
+
+function getSecondsFromSettings(seconds: number): number {
+  return seconds || 1;
+}
+
+function getIdleResetSeconds(): number {
+  const settings = getSettings();
+  return getSecondsFromSettings(settings.idleResetLengthSeconds);
+}
+
+function createIdleNotification(): void {
+  const settings = getSettings();
+
+  if (!settings.idleResetEnabled || idleStart === null) {
+    return;
+  }
+
+  let idleSeconds = Number(((+new Date() - +idleStart) / 1000).toFixed(0));
+  let idleMinutes = 0;
+  let idleHours = 0;
+
+  if (idleSeconds > 60) {
+    idleMinutes = Math.floor(idleSeconds / 60);
+    idleSeconds -= idleMinutes * 60;
+  }
+
+  if (idleMinutes > 60) {
+    idleHours = Math.floor(idleMinutes / 60);
+    idleMinutes -= idleHours * 60;
+  }
+
+  if (settings.idleResetNotification) {
+    showNotification(
+      "Break automatically detected",
+      `Away for ${zeroPad(idleHours)}:${zeroPad(idleMinutes)}:${zeroPad(
+        idleSeconds,
+      )}`,
+    );
+  }
+}
+
 let powerMonitor: PowerMonitor;
-let breakTime: BreakTime = null;
+let breakStates = new Map<string, BreakDefinitionState>();
+let dueQueue: ScheduledBreakOccurrence[] = [];
+let activeBreakContext: ActiveBreakContext | null = null;
 let havingBreak = false;
-let postponedCount = 0;
 let idleStart: Date | null = null;
 let lockStart: Date | null = null;
 let lastTick: Date | null = null;
@@ -37,12 +144,16 @@ let lastCompletedBreakTime: Date | null = new Date();
 let currentBreakStartTime: Date | null = null;
 
 export function getBreakTime(): BreakTime {
-  return breakTime;
+  const nextOccurrence = getNextOccurrenceCandidate();
+  return nextOccurrence ? moment(nextOccurrence.dueAtMs) : null;
+}
+
+export function getActiveBreakContext(): ActiveBreakContext | null {
+  return activeBreakContext;
 }
 
 export function getBreakLengthSeconds(): number {
-  const settings: Settings = getSettings();
-  return settings.breakLengthSeconds;
+  return activeBreakContext?.breakDefinition.breakLengthSeconds ?? 0;
 }
 
 export function getTimeSinceLastBreak(): number | null {
@@ -73,181 +184,77 @@ function markBreakCompleted(context: string): void {
 }
 
 export function completeBreakTracking(breakDurationMs: number): void {
-  if (!currentBreakStartTime) return;
+  if (!currentBreakStartTime) {
+    return;
+  }
 
-  const settings = getSettings();
-  const requiredDurationMs = settings.breakLengthSeconds * 1000;
+  const requiredDurationMs =
+    (activeBreakContext?.breakDefinition.breakLengthSeconds ?? 0) * 1000;
   const halfRequiredDuration = requiredDurationMs / 2;
 
   if (breakDurationMs >= halfRequiredDuration) {
     markBreakCompleted(
-      `Break completed [duration=${Math.round(
+      `Break completed [definition=${activeBreakContext?.breakDefinition.id ?? "unknown"}] [duration=${Math.round(
         breakDurationMs / 1000,
-      )}s] [required=${settings.breakLengthSeconds}s]`,
+      )}s] [required=${Math.round(requiredDurationMs / 1000)}s]`,
     );
   } else {
     log.info(
-      `Break too short [duration=${Math.round(
+      `Break too short [definition=${activeBreakContext?.breakDefinition.id ?? "unknown"}] [duration=${Math.round(
         breakDurationMs / 1000,
-      )}s] [required=${settings.breakLengthSeconds}s]`,
+      )}s] [required=${Math.round(requiredDurationMs / 1000)}s]`,
     );
   }
 
   currentBreakStartTime = null;
 }
 
-function zeroPad(n: number) {
-  const nStr = String(n);
-  return nStr.length === 1 ? `0${nStr}` : nStr;
+function queueOccurrence(occurrence: ScheduledBreakOccurrence): void {
+  dueQueue.push(occurrence);
+  sortDueQueue();
 }
 
-function getSecondsFromSettings(seconds: number): number {
-  return seconds || 1; // can't be 0
-}
-
-function getIdleResetSeconds(): number {
-  const settings: Settings = getSettings();
-  return getSecondsFromSettings(settings.idleResetLengthSeconds);
-}
-
-function getBreakSeconds(): number {
-  const settings: Settings = getSettings();
-  return getSecondsFromSettings(settings.breakFrequencySeconds);
-}
-
-function createIdleNotification() {
-  const settings: Settings = getSettings();
-
-  if (!settings.idleResetEnabled || idleStart === null) {
-    return;
-  }
-
-  let idleSeconds = Number(((+new Date() - +idleStart) / 1000).toFixed(0));
-  let idleMinutes = 0;
-  let idleHours = 0;
-
-  if (idleSeconds > 60) {
-    idleMinutes = Math.floor(idleSeconds / 60);
-    idleSeconds -= idleMinutes * 60;
-  }
-
-  if (idleMinutes > 60) {
-    idleHours = Math.floor(idleMinutes / 60);
-    idleMinutes -= idleHours * 60;
-  }
-
-  if (settings.idleResetNotification) {
-    showNotification(
-      "Break automatically detected",
-      `Away for ${zeroPad(idleHours)}:${zeroPad(idleMinutes)}:${zeroPad(
-        idleSeconds,
-      )}`,
-    );
-  }
-}
-
-export function scheduleNextBreak(isPostpone = false): void {
-  const settings: Settings = getSettings();
-
-  if (idleStart) {
-    createIdleNotification();
-    idleStart = null;
-    postponedCount = 0;
-
-    resetTimeSinceLastBreak("Break auto-detected via idle reset");
-  }
-
-  const seconds = isPostpone
-    ? settings.postponeLengthSeconds
-    : settings.breakFrequencySeconds;
-
-  breakTime = moment().add(seconds, "seconds");
-
-  log.info(
-    `Scheduling next break [isPostpone=${isPostpone}] [seconds=${seconds}] [postponeLength=${settings.postponeLengthSeconds}] [frequency=${settings.breakFrequencySeconds}] [scheduledFor=${breakTime.format("HH:mm:ss")}]`,
-  );
-
-  buildTray();
-}
-
-export function endPopupBreak(): void {
-  if (currentBreakStartTime) {
-    const breakDurationMs = Date.now() - currentBreakStartTime.getTime();
-    completeBreakTracking(breakDurationMs);
-  }
-
-  log.info("Break ended");
-  const existingBreakTime = breakTime;
-  const now = moment();
-  havingBreak = false;
-  startedFromTray = false;
-
-  // If there's no future break scheduled, create a normal break
-  if (!existingBreakTime || existingBreakTime <= now) {
-    postponedCount = 0;
-    breakTime = null;
-    scheduleNextBreak();
-  }
-  // If there's already a future break scheduled (from snooze/skip), keep it
-
-  buildTray();
-}
-
-export function getAllowPostpone(): boolean {
+function getNextOccurrenceCandidate(): ScheduledBreakOccurrence | null {
+  const queuedOccurrence = dueQueue[0] ?? null;
   const settings = getSettings();
-  return !settings.postponeLimit || postponedCount < settings.postponeLimit;
-}
+  let scheduledOccurrence: ScheduledBreakOccurrence | null = null;
 
-export function postponeBreak(action = "snoozed"): void {
-  postponedCount++;
-  havingBreak = false;
-  log.info(`Break ${action} [count=${postponedCount}]`);
+  for (const definition of getEnabledBreakDefinitions(settings)) {
+    const state = breakStates.get(definition.id);
+    const dueAtMs = state ? getNextDueAtMs(state) : null;
 
-  if (action === "skipped") {
-    log.info("Creating break with normal frequency");
-    scheduleNextBreak();
-  } else {
-    log.info("Creating break with postpone length");
-    scheduleNextBreak(true);
-  }
-}
-
-function doBreak(): void {
-  havingBreak = true;
-
-  const settings: Settings = getSettings();
-  log.info(`Break started [type=${settings.notificationType}]`);
-
-  if (
-    settings.notificationType === NotificationType.Notification ||
-    settings.immediatelyStartBreaks ||
-    startedFromTray
-  ) {
-    startBreakTracking();
-  }
-
-  if (settings.notificationType === NotificationType.Notification) {
-    showNotification("Time for a break!", stripHtml(settings.breakMessage));
-    if (settings.soundType !== SoundType.None) {
-      sendIpc(
-        IpcChannel.SoundStartPlay,
-        settings.soundType,
-        settings.breakSoundVolume,
-      );
+    if (dueAtMs === null) {
+      continue;
     }
-    markBreakCompleted("Break completed [type=notification]");
-    havingBreak = false;
-    scheduleNextBreak();
+
+    if (!scheduledOccurrence || dueAtMs < scheduledOccurrence.dueAtMs) {
+      scheduledOccurrence = {
+        breakDefinitionId: definition.id,
+        dueAtMs,
+        sequenceIndex: state?.nextIndex ?? null,
+        postponeCount: 0,
+        source: "scheduled",
+      };
+    }
   }
 
-  if (settings.notificationType === NotificationType.Popup) {
-    createBreakWindows();
+  if (!queuedOccurrence) {
+    return scheduledOccurrence;
   }
 
-  buildTray();
+  if (!scheduledOccurrence) {
+    return queuedOccurrence;
+  }
+
+  return queuedOccurrence.dueAtMs <= scheduledOccurrence.dueAtMs
+    ? queuedOccurrence
+    : scheduledOccurrence;
 }
 
-function checkInWorkingHoursAt(now: moment.Moment, settings: Settings): boolean {
+function checkInWorkingHoursAt(
+  now: moment.Moment,
+  settings: Settings,
+): boolean {
   if (!settings.workingHoursEnabled) {
     return true;
   }
@@ -285,13 +292,12 @@ enum IdleState {
   Active = "active",
   Idle = "idle",
   Locked = "locked",
-  Unknown = "unknown",
 }
 
 export function checkIdle(): boolean {
   const settings: Settings = getSettings();
 
-  const state: IdleState = powerMonitor.getSystemIdleState(
+  const state = powerMonitor.getSystemIdleState(
     getIdleResetSeconds(),
   ) as IdleState;
 
@@ -299,12 +305,10 @@ export function checkIdle(): boolean {
     if (!lockStart) {
       lockStart = new Date();
       return false;
-    } else {
-      const lockSeconds = Number(
-        ((+new Date() - +lockStart) / 1000).toFixed(0),
-      );
-      return lockSeconds > getIdleResetSeconds();
     }
+
+    const lockSeconds = Number(((+new Date() - +lockStart) / 1000).toFixed(0));
+    return lockSeconds > getIdleResetSeconds();
   }
 
   lockStart = null;
@@ -320,25 +324,249 @@ export function isHavingBreak(): boolean {
   return havingBreak;
 }
 
-function checkShouldHaveBreak(): boolean {
-  const settings: Settings = getSettings();
-  const inWorkingHours = checkInWorkingHours();
-  const idle = checkIdle();
-
-  return !havingBreak && settings.breaksEnabled && inWorkingHours && !idle;
+function canOccurrenceRunInWorkingHours(
+  occurrence: ScheduledBreakOccurrence,
+  settings: Settings,
+): boolean {
+  return checkInWorkingHoursAt(moment(occurrence.dueAtMs), settings);
 }
 
-function checkBreak(): void {
-  const now = moment();
+function startBreakForOccurrence(occurrence: ScheduledBreakOccurrence): void {
+  const settings = getSettings();
+  const definition = settings.breakDefinitions.find(
+    (breakDefinition) => breakDefinition.id === occurrence.breakDefinitionId,
+  );
 
-  if (breakTime !== null && now > breakTime) {
-    doBreak();
+  if (!definition) {
+    return;
+  }
+
+  activeBreakContext = {
+    breakDefinition: definition,
+    occurrence,
+  };
+  havingBreak = true;
+
+  log.info(
+    `Break started [definition=${definition.id}] [type=${definition.notificationType}] [source=${occurrence.source}]`,
+  );
+
+  if (
+    definition.notificationType === NotificationType.Notification ||
+    settings.immediatelyStartBreaks ||
+    startedFromTray
+  ) {
+    startBreakTracking();
+  }
+
+  if (definition.notificationType === NotificationType.Notification) {
+    showNotification(definition.breakTitle, stripHtml(definition.breakMessage));
+
+    if (definition.soundType !== SoundType.None) {
+      sendIpc(
+        IpcChannel.SoundStartPlay,
+        definition.soundType,
+        definition.breakSoundVolume,
+      );
+    }
+
+    markBreakCompleted(
+      `Break completed [definition=${definition.id}] [type=notification]`,
+    );
+    activeBreakContext = null;
+    havingBreak = false;
+    startedFromTray = false;
+    currentBreakStartTime = null;
+    buildTray();
+    startNextDueOccurrence();
+    return;
+  }
+
+  createBreakWindows();
+  buildTray();
+}
+
+function startNextDueOccurrence(): void {
+  if (havingBreak || activeBreakContext) {
+    return;
+  }
+
+  sortDueQueue();
+
+  const nextOccurrence = dueQueue[0];
+  if (!nextOccurrence || nextOccurrence.dueAtMs > Date.now()) {
+    return;
+  }
+
+  dueQueue.shift();
+  startBreakForOccurrence(nextOccurrence);
+}
+
+function applyIdleResets(nowMs: number, settings: Settings): boolean {
+  let didReset = false;
+
+  for (const definition of getEnabledBreakDefinitions(settings)) {
+    const state = getDefinitionState(definition, nowMs);
+    const nextDueAtMs = getNextDueAtMs(state);
+
+    if (
+      nextDueAtMs !== null &&
+      nextDueAtMs <= nowMs &&
+      canOccurrenceRunInWorkingHours(
+        {
+          breakDefinitionId: definition.id,
+          dueAtMs: nextDueAtMs,
+          sequenceIndex: state.nextIndex,
+          postponeCount: 0,
+          source: "scheduled",
+        },
+        settings,
+      )
+    ) {
+      setDefinitionState(deferStateForIdle(state));
+    }
+
+    const updatedState = breakStates.get(definition.id);
+
+    if (!updatedState?.idleDeferred) {
+      continue;
+    }
+
+    setDefinitionState(shiftStateAfterIdle(updatedState, definition, nowMs));
+    didReset = true;
+  }
+
+  return didReset;
+}
+
+function enqueueDueScheduledOccurrences(
+  nowMs: number,
+  settings: Settings,
+): void {
+  for (const definition of getEnabledBreakDefinitions(settings)) {
+    let state = getDefinitionState(definition, nowMs);
+
+    while (true) {
+      const dueAtMs = getNextDueAtMs(state);
+
+      if (dueAtMs === null || dueAtMs > nowMs) {
+        break;
+      }
+
+      const occurrence: ScheduledBreakOccurrence = {
+        breakDefinitionId: definition.id,
+        dueAtMs,
+        sequenceIndex: state.nextIndex,
+        postponeCount: 0,
+        source: "scheduled",
+      };
+
+      if (!canOccurrenceRunInWorkingHours(occurrence, settings)) {
+        state = consumeNextOccurrence(state);
+        continue;
+      }
+
+      if (idleStart) {
+        state = deferStateForIdle(state);
+        break;
+      }
+
+      queueOccurrence(occurrence);
+      state = consumeNextOccurrence(state);
+    }
+
+    setDefinitionState(state);
   }
 }
 
+export function endPopupBreak(): void {
+  if (currentBreakStartTime) {
+    const breakDurationMs = Date.now() - currentBreakStartTime.getTime();
+    completeBreakTracking(breakDurationMs);
+  }
+
+  log.info("Break ended");
+  havingBreak = false;
+  startedFromTray = false;
+  activeBreakContext = null;
+  currentBreakStartTime = null;
+
+  buildTray();
+  startNextDueOccurrence();
+}
+
+export function getAllowPostpone(): boolean {
+  if (!activeBreakContext) {
+    return false;
+  }
+
+  return (
+    !activeBreakContext.breakDefinition.postponeLimit ||
+    activeBreakContext.occurrence.postponeCount <
+      activeBreakContext.breakDefinition.postponeLimit
+  );
+}
+
+export function postponeBreak(action = "snoozed"): void {
+  if (!activeBreakContext) {
+    return;
+  }
+
+  const activeDefinition = activeBreakContext.breakDefinition;
+  const nextPostponeCount = activeBreakContext.occurrence.postponeCount + 1;
+
+  havingBreak = false;
+  currentBreakStartTime = null;
+  log.info(
+    `Break ${action} [definition=${activeDefinition.id}] [count=${nextPostponeCount}]`,
+  );
+
+  if (action !== "skipped") {
+    queueOccurrence({
+      ...activeBreakContext.occurrence,
+      dueAtMs: Date.now() + activeDefinition.postponeLengthSeconds * 1000,
+      postponeCount: nextPostponeCount,
+      source: "snoozed",
+    });
+  }
+
+  activeBreakContext = null;
+  startedFromTray = false;
+  buildTray();
+  startNextDueOccurrence();
+}
+
 export function startBreakNow(): void {
+  if (havingBreak || activeBreakContext) {
+    return;
+  }
+
+  const settings = getSettings();
+  const nextPlannedOccurrence = getNextOccurrenceCandidate();
+  const fallbackDefinition = getEnabledBreakDefinitions(settings)[0];
+
+  const occurrence =
+    nextPlannedOccurrence ??
+    (fallbackDefinition
+      ? {
+          breakDefinitionId: fallbackDefinition.id,
+          dueAtMs: Date.now(),
+          sequenceIndex: null,
+          postponeCount: 0,
+          source: "manual" as const,
+        }
+      : null);
+
+  if (!occurrence) {
+    return;
+  }
+
   startedFromTray = true;
-  breakTime = moment();
+  startBreakForOccurrence({
+    ...occurrence,
+    dueAtMs: Date.now(),
+    source: "manual",
+  });
 }
 
 export function wasStartedFromTray(): boolean {
@@ -348,7 +576,11 @@ export function wasStartedFromTray(): boolean {
 function tick(): void {
   try {
     const settings = getSettings();
-    const now = moment();
+    const nowMs = Date.now();
+    const now = moment(nowMs);
+
+    syncDefinitionStates(settings, nowMs);
+
     const inWorkingHours = checkInWorkingHoursAt(now, settings);
     const wasInWorkingHours = lastTick
       ? checkInWorkingHoursAt(moment(lastTick), settings)
@@ -358,59 +590,46 @@ function tick(): void {
       resetTimeSinceLastBreak("Reset time since last break [working-hours]");
     }
 
-    const shouldHaveBreak = checkShouldHaveBreak();
-
-    // This can happen if the computer is put to sleep. In this case, we want
-    // to skip the break if the time the computer was unresponsive was greater
-    // than the idle reset.
+    const idle = settings.breaksEnabled ? checkIdle() : false;
     const secondsSinceLastTick = lastTick
       ? Math.abs(+new Date() - +lastTick) / 1000
       : 0;
-    const breakSeconds = getBreakSeconds();
-    const lockSeconds = lockStart && Math.abs(+new Date() - +lockStart) / 1000;
 
-    if (lockStart && lockSeconds !== null && lockSeconds > breakSeconds) {
-      // The computer has been locked for longer than the break period. In this
-      // case, it's not particularly helpful to show an idle reset
-      // notification, so unset idle start
+    if (!idle && idleStart) {
+      const didReset = applyIdleResets(nowMs, settings);
+
+      if (didReset) {
+        createIdleNotification();
+        resetTimeSinceLastBreak("Break auto-detected via idle reset");
+      }
+
       idleStart = null;
-      lockStart = null;
-    } else if (secondsSinceLastTick > breakSeconds) {
-      // The computer has been slept for longer than the break period. In this
-      // case, it's not particularly helpful to show an idle reset
-      // notification, so just reset the break
-      lockStart = null;
-      breakTime = null;
-    } else if (secondsSinceLastTick > getIdleResetSeconds()) {
-      //  If idleStart exists, it means we were idle before the computer slept.
-      //  If it doesn't exist, count the computer going unresponsive as the
-      //  start of the idle period.
-      if (!idleStart) {
-        lockStart = null;
-        idleStart = lastTick;
+    } else if (
+      !idle &&
+      lastTick &&
+      secondsSinceLastTick > getIdleResetSeconds()
+    ) {
+      idleStart = lastTick;
+      const didReset = applyIdleResets(nowMs, settings);
+
+      if (didReset) {
+        createIdleNotification();
+        resetTimeSinceLastBreak("Break auto-detected via sleep reset");
       }
-      scheduleNextBreak();
+
+      idleStart = null;
     }
 
-    if (!shouldHaveBreak && !havingBreak && breakTime) {
-      if (checkIdle()) {
-        const idleResetSeconds = getIdleResetSeconds();
-        // Calculate when idle actually started by subtracting idle duration
-        idleStart = new Date(Date.now() - idleResetSeconds * 1000);
-      }
-      breakTime = null;
-      buildTray();
+    if (idle && !idleStart) {
+      idleStart = new Date(Date.now() - getIdleResetSeconds() * 1000);
+    }
+
+    if (!settings.breaksEnabled) {
       return;
     }
 
-    if (shouldHaveBreak && !breakTime) {
-      scheduleNextBreak();
-      return;
-    }
-
-    if (shouldHaveBreak) {
-      checkBreak();
-    }
+    enqueueDueScheduledOccurrences(nowMs, settings);
+    startNextDueOccurrence();
   } finally {
     lastTick = new Date();
   }
@@ -419,12 +638,19 @@ function tick(): void {
 let tickInterval: NodeJS.Timeout;
 
 export function initBreaks(): void {
-  powerMonitor = require("electron").powerMonitor;
+  powerMonitor = require("electron").powerMonitor as PowerMonitor;
+  breakStates = new Map();
+  dueQueue = [];
 
-  const settings: Settings = getSettings();
+  if (!havingBreak) {
+    activeBreakContext = null;
+    currentBreakStartTime = null;
+    startedFromTray = false;
+  }
 
+  const settings = getSettings();
   if (settings.breaksEnabled) {
-    scheduleNextBreak();
+    syncDefinitionStates(settings, Date.now());
   }
 
   if (tickInterval) {

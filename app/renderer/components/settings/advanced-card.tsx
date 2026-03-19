@@ -12,6 +12,12 @@ export default function AdvancedCard({
   settingsDraft,
   onSwitchChange,
 }: AdvancedCardProps) {
+  const hasPopupBreaks = settingsDraft.breakDefinitions.some(
+    (breakDefinition) =>
+      breakDefinition.enabled &&
+      breakDefinition.notificationType === NotificationType.Popup,
+  );
+
   return (
     <SettingsCard title="Advanced">
       <div className="space-y-4">
@@ -21,7 +27,7 @@ export default function AdvancedCard({
             onCheckedChange={(checked) =>
               onSwitchChange("immediatelyStartBreaks", checked)
             }
-            disabled={settingsDraft.notificationType !== NotificationType.Popup}
+            disabled={!hasPopupBreaks}
           />
           <Label>Immediately start breaks</Label>
         </div>

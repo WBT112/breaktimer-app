@@ -3,6 +3,22 @@ export enum NotificationType {
   Popup = "POPUP",
 }
 
+export interface BreakDefinition {
+  id: string;
+  enabled: boolean;
+  notificationType: NotificationType;
+  startTimeSeconds: number;
+  intervalSeconds: number;
+  maxOccurrencesPerDay: number | null;
+  breakTitle: string;
+  breakMessage: string;
+  breakLengthSeconds: number;
+  postponeLengthSeconds: number;
+  postponeLimit: number;
+  soundType: SoundType;
+  breakSoundVolume: number;
+}
+
 export interface WorkingHoursRange {
   fromMinutes: number;
   toMinutes: number;
@@ -32,11 +48,7 @@ export interface Settings {
   breaksEnabled: boolean;
   trayTextEnabled: boolean;
   trayTextMode: TrayTextMode;
-  notificationType: NotificationType;
-  breakFrequencySeconds: number;
-  breakLengthSeconds: number;
-  postponeLengthSeconds: number;
-  postponeLimit: number;
+  breakDefinitions: BreakDefinition[];
   workingHoursEnabled: boolean;
   workingHoursMonday: WorkingHours;
   workingHoursTuesday: WorkingHours;
@@ -48,10 +60,6 @@ export interface Settings {
   idleResetEnabled: boolean;
   idleResetLengthSeconds: number;
   idleResetNotification: boolean;
-  soundType: SoundType;
-  breakSoundVolume: number;
-  breakTitle: string;
-  breakMessage: string;
   backgroundColor: string;
   textColor: string;
   showBackdrop: boolean;
@@ -67,16 +75,36 @@ export const defaultWorkingRange: WorkingHoursRange = {
   toMinutes: 18 * 60, // 18:00
 };
 
+export function createBreakDefinitionId(): string {
+  return `break-${Math.random().toString(36).slice(2, 10)}`;
+}
+
+export function createDefaultBreakDefinition(
+  id = createBreakDefinitionId(),
+): BreakDefinition {
+  return {
+    id,
+    enabled: true,
+    notificationType: NotificationType.Popup,
+    startTimeSeconds: 8 * 60 * 60,
+    intervalSeconds: 2 * 60 * 60,
+    maxOccurrencesPerDay: 4,
+    breakTitle: "Time for a break.",
+    breakMessage: "Rest your eyes.\nStretch your legs.\nBreathe. Relax.",
+    breakLengthSeconds: 2 * 60,
+    postponeLengthSeconds: 3 * 60,
+    postponeLimit: 0,
+    soundType: SoundType.Gong,
+    breakSoundVolume: 1,
+  };
+}
+
 export const defaultSettings: Settings = {
   autoLaunch: true,
   breaksEnabled: true,
   trayTextEnabled: true,
   trayTextMode: TrayTextMode.TimeToNextBreak,
-  notificationType: NotificationType.Popup,
-  breakFrequencySeconds: 28 * 60,
-  breakLengthSeconds: 2 * 60,
-  postponeLengthSeconds: 3 * 60,
-  postponeLimit: 0,
+  breakDefinitions: [createDefaultBreakDefinition("default-break-1")],
   workingHoursEnabled: true,
   workingHoursMonday: {
     enabled: true,
@@ -109,10 +137,6 @@ export const defaultSettings: Settings = {
   idleResetEnabled: true,
   idleResetLengthSeconds: 5 * 60,
   idleResetNotification: false,
-  soundType: SoundType.Gong,
-  breakSoundVolume: 1,
-  breakTitle: "Time for a break.",
-  breakMessage: "Rest your eyes.\nStretch your legs.\nBreathe. Relax.",
   backgroundColor: "#16a085",
   textColor: "#ffffff",
   showBackdrop: true,

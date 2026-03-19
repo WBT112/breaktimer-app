@@ -12,6 +12,9 @@ process.once("loaded", () => {
   contextBridge.exposeInMainWorld("processEnv", { ...process.env });
   contextBridge.exposeInMainWorld("processPlatform", process.platform);
   contextBridge.exposeInMainWorld("ipcRenderer", {
+    invokeGetActiveBreak: () => {
+      return ipcRenderer.invoke("ACTIVE_BREAK_GET");
+    },
     invokeBreakPostpone: (action) => {
       return ipcRenderer.invoke("BREAK_POSTPONE", action);
     },

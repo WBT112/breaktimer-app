@@ -1,4 +1,5 @@
 export enum IpcChannel {
+  ActiveBreakGet = "ACTIVE_BREAK_GET",
   AllowPostponeGet = "ALLOW_POSTPONE_GET",
   AppInitializedSet = "APP_INITIALIZED_SET",
   AppInitializedGet = "APP_INITIALIZED_GET",
