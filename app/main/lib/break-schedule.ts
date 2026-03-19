@@ -9,7 +9,7 @@ export interface BreakDefinitionState {
   idleDeferred: boolean;
 }
 
-const DAY_MS = 24 * 60 * 60 * 1000;
+export const DAY_MS = 24 * 60 * 60 * 1000;
 
 export function getDayStartMs(timestampMs: number): number {
   const date = new Date(timestampMs);
@@ -24,12 +24,10 @@ export function buildDailyOccurrences(
   const occurrences: number[] = [];
   const dayEndMs = dayStartMs + DAY_MS;
   const intervalMs = Math.max(definition.intervalSeconds, 1) * 1000;
-  const maxOccurrences =
-    definition.maxOccurrencesPerDay ?? Number.MAX_SAFE_INTEGER;
 
   let nextDueMs = dayStartMs + definition.startTimeSeconds * 1000;
 
-  while (nextDueMs < dayEndMs && occurrences.length < maxOccurrences) {
+  while (nextDueMs < dayEndMs) {
     occurrences.push(nextDueMs);
     nextDueMs += intervalMs;
   }
@@ -64,6 +62,32 @@ export function sortOccurrencesByDueAt(
   return [...occurrences].sort((left, right) => left.dueAtMs - right.dueAtMs);
 }
 
+export function findNextOccurrenceAfter(
+  definition: BreakDefinition,
+  nowMs: number,
+  isValidOccurrence: (dueAtMs: number) => boolean,
+  maxDaysToScan = 7,
+): number | null {
+  const initialDayStartMs = getDayStartMs(nowMs);
+
+  for (let dayOffset = 0; dayOffset <= maxDaysToScan; dayOffset++) {
+    const dayStartMs = initialDayStartMs + dayOffset * DAY_MS;
+    const occurrencesMs = buildDailyOccurrences(definition, dayStartMs);
+
+    for (const dueAtMs of occurrencesMs) {
+      if (dueAtMs < nowMs) {
+        continue;
+      }
+
+      if (isValidOccurrence(dueAtMs)) {
+        return dueAtMs;
+      }
+    }
+  }
+
+  return null;
+}
+
 export function advanceStatePastInvalidOccurrences(
   state: BreakDefinitionState,
   isValidOccurrence: (dueAtMs: number) => boolean,
@@ -93,6 +117,30 @@ export function consumeNextOccurrence(
   return {
     ...state,
     nextIndex: Math.min(state.nextIndex + 1, state.occurrencesMs.length),
+    idleDeferred: false,
+  };
+}
+
+export function advanceStatePastTime(
+  state: BreakDefinitionState,
+  nowMs: number,
+): BreakDefinitionState {
+  let nextIndex = state.nextIndex;
+
+  while (
+    nextIndex < state.occurrencesMs.length &&
+    state.occurrencesMs[nextIndex] <= nowMs
+  ) {
+    nextIndex++;
+  }
+
+  if (nextIndex === state.nextIndex) {
+    return state;
+  }
+
+  return {
+    ...state,
+    nextIndex,
     idleDeferred: false,
   };
 }

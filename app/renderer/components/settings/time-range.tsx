@@ -81,7 +81,7 @@ export default function TimeRange({
         }}
         disabled={disabled}
       />
-      <span className="text-muted-foreground">to</span>
+      <span className="text-muted-foreground">bis</span>
       <TimeInput
         precision="minutes"
         value={minutesToSeconds(range.toMinutes)}
@@ -109,7 +109,7 @@ export default function TimeRange({
                   size="sm"
                   variant="ghost"
                   disabled={disabled}
-                  title="Copy to other days"
+                  title="Auf andere Tage kopieren"
                 >
                   <Copy className="h-4 w-4" />
                 </Button>
@@ -122,7 +122,9 @@ export default function TimeRange({
                 avoidCollisions={true}
                 collisionPadding={32}
               >
-                <h4 className="font-semibold mb-3 text-sm">Copy ranges to:</h4>
+                <h4 className="font-semibold mb-3 text-sm">
+                  Zeiten kopieren nach:
+                </h4>
                 <div className="flex flex-col gap-2 mb-4">
                   {daysConfig.map((otherDay) => (
                     <div
@@ -164,7 +166,7 @@ export default function TimeRange({
                   disabled={selectedDays.length === 0}
                   variant="outline"
                 >
-                  Apply
+                  Anwenden
                 </Button>
               </PopoverContent>
             </Popover>

@@ -174,10 +174,10 @@ export function buildTray(): void {
 
   const createAboutWindow = (): void => {
     dialog.showMessageBox({
-      title: "About",
+      title: "Über",
       type: "info",
       message: `BreakTimer`,
-      detail: `Build: ${packageJson.version}\n\nWebsite:\nhttps://breaktimer.app\n\nSource Code:\nhttps://github.com/tom-james-watson/breaktimer-app\n\nDistributed under GPL-3.0-or-later license.`,
+      detail: `Build: ${packageJson.version}\n\nWebsite:\nhttps://breaktimer.app\n\nQuellcode:\nhttps://github.com/tom-james-watson/breaktimer-app\n\nVeröffentlicht unter der GPL-3.0-or-later-Lizenz.`,
     });
   };
 
@@ -197,11 +197,11 @@ export function buildTray(): void {
 
   if (minsLeft !== undefined) {
     if (minsLeft > 1) {
-      nextBreak = `Next break in ${minsLeft} minutes`;
+      nextBreak = `Nächste Pause in ${minsLeft} Minuten`;
     } else if (minsLeft === 1) {
-      nextBreak = `Next break in 1 minute`;
+      nextBreak = "Nächste Pause in 1 Minute";
     } else {
-      nextBreak = `Next break in less than a minute`;
+      nextBreak = "Nächste Pause in weniger als einer Minute";
     }
   }
 
@@ -218,36 +218,42 @@ export function buildTray(): void {
       enabled: false,
     },
     {
-      label: `Disabled for ${getDisableTimeRemaining()}`,
+      label: `Deaktiviert für ${getDisableTimeRemaining()}`,
       visible: disableEndTime !== null && !breaksEnabled,
       enabled: false,
     },
     {
-      label: `Outside of working hours`,
+      label: "Außerhalb der Arbeitszeiten",
       visible: !inWorkingHours,
       enabled: false,
     },
     {
-      label: `Idle`,
+      label: "Inaktiv",
       visible: idle,
       enabled: false,
     },
     { type: "separator" },
     {
-      label: "Enable",
+      label: "Aktivieren",
       click: setBreaksEnabled.bind(null, true),
       visible: !breaksEnabled,
     },
     {
-      label: "Disable...",
+      label: "Deaktivieren...",
       submenu: [
-        { label: "Indefinitely", click: disableIndefinitely },
-        { label: "30 minutes", click: () => disableBreaksFor(30 * 60 * 1000) },
-        { label: "1 hour", click: () => disableBreaksFor(60 * 60 * 1000) },
-        { label: "2 hours", click: () => disableBreaksFor(2 * 60 * 60 * 1000) },
-        { label: "4 hours", click: () => disableBreaksFor(4 * 60 * 60 * 1000) },
+        { label: "Unbegrenzt", click: disableIndefinitely },
+        { label: "30 Minuten", click: () => disableBreaksFor(30 * 60 * 1000) },
+        { label: "1 Stunde", click: () => disableBreaksFor(60 * 60 * 1000) },
         {
-          label: "Rest of day",
+          label: "2 Stunden",
+          click: () => disableBreaksFor(2 * 60 * 60 * 1000),
+        },
+        {
+          label: "4 Stunden",
+          click: () => disableBreaksFor(4 * 60 * 60 * 1000),
+        },
+        {
+          label: "Rest des Tages",
           click: () => {
             const now = new Date();
             const endOfDay = new Date(
@@ -265,7 +271,7 @@ export function buildTray(): void {
       visible: breaksEnabled,
     },
     {
-      label: "Start break now",
+      label: "Pause jetzt starten",
       visible: breakTime !== null && inWorkingHours && !havingBreak,
       click: () => {
         log.info("Start break now selected");
@@ -273,9 +279,9 @@ export function buildTray(): void {
       },
     },
     { type: "separator" },
-    { label: "Settings...", click: createSettingsWindow },
-    { label: "About...", click: createAboutWindow },
-    { label: "Quit", click: quit },
+    { label: "Einstellungen...", click: createSettingsWindow },
+    { label: "Über...", click: createAboutWindow },
+    { label: "Beenden", click: quit },
   ]);
 
   // Call this again for Linux because we modified the context menu

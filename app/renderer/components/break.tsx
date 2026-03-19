@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ActiveBreakContext } from "../../types/breaks";
 import { Settings, SoundType } from "../../types/settings";
 import { BreakNotification } from "./break/break-notification";
@@ -21,6 +21,7 @@ export default function Break() {
   const [sharedBreakEndTime, setSharedBreakEndTime] = useState<number | null>(
     null,
   );
+  const notificationRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     const init = async () => {
@@ -86,6 +87,41 @@ export default function Break() {
   }, [countingDown, settings]);
 
   useEffect(() => {
+    if (
+      !countingDown ||
+      !ready ||
+      closing ||
+      notificationRef.current === null
+    ) {
+      return;
+    }
+
+    const resizeWindowToContent = () => {
+      const element = notificationRef.current;
+      if (!element) {
+        return;
+      }
+
+      const rect = element.getBoundingClientRect();
+      const width = Math.max(Math.ceil(rect.width), 450);
+      const height = Math.max(Math.ceil(rect.height), 88);
+      ipcRenderer.invokeBreakWindowResize({ width, height });
+    };
+
+    resizeWindowToContent();
+
+    const observer = new ResizeObserver(() => {
+      resizeWindowToContent();
+    });
+
+    observer.observe(notificationRef.current);
+
+    return () => {
+      observer.disconnect();
+    };
+  }, [countingDown, ready, closing, activeBreak]);
+
+  useEffect(() => {
     if (closing) {
       setTimeout(() => {
         window.close();
@@ -135,25 +171,31 @@ export default function Break() {
         style={{ backgroundColor: "transparent" }}
       >
         {ready && !closing && (
-          <BreakNotification
-            breakMessage={activeBreak.breakDefinition.breakMessage}
-            breakTitle={activeBreak.breakDefinition.breakTitle}
-            onCountdownOver={handleCountdownOver}
-            onPostponeBreak={handlePostponeBreak}
-            onSkipBreak={handleSkipBreak}
-            onStartBreakNow={handleStartBreakNow}
-            postponeBreakEnabled={
-              settings.postponeBreakEnabled &&
-              allowPostpone &&
-              !settings.immediatelyStartBreaks
-            }
-            skipBreakEnabled={
-              settings.skipBreakEnabled && !settings.immediatelyStartBreaks
-            }
-            timeSinceLastBreak={timeSinceLastBreak}
-            textColor={settings.textColor}
-            backgroundColor={settings.backgroundColor}
-          />
+          <div
+            ref={notificationRef}
+            className="w-full max-w-[680px] px-0"
+            style={{ backgroundColor: "transparent" }}
+          >
+            <BreakNotification
+              breakMessage={activeBreak.breakDefinition.breakMessage}
+              breakTitle={activeBreak.breakDefinition.breakTitle}
+              onCountdownOver={handleCountdownOver}
+              onPostponeBreak={handlePostponeBreak}
+              onSkipBreak={handleSkipBreak}
+              onStartBreakNow={handleStartBreakNow}
+              postponeBreakEnabled={
+                settings.postponeBreakEnabled &&
+                allowPostpone &&
+                !settings.immediatelyStartBreaks
+              }
+              skipBreakEnabled={
+                settings.skipBreakEnabled && !settings.immediatelyStartBreaks
+              }
+              timeSinceLastBreak={timeSinceLastBreak}
+              textColor={settings.textColor}
+              backgroundColor={settings.backgroundColor}
+            />
+          </div>
         )}
       </div>
     );

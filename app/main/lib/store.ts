@@ -1,5 +1,10 @@
 import Store from "electron-store";
-import { defaultSettings, Settings } from "../../types/settings";
+import { BreakCompletionHistory } from "../../types/breaks";
+import {
+  defaultSettings,
+  normalizeSettings,
+  Settings,
+} from "../../types/settings";
 import { setAutoLauch } from "./auto-launch";
 import { initBreaks, resetTimeSinceLastBreak } from "./breaks";
 import { migrateSettingsObject } from "./settings-migrations";
@@ -10,6 +15,7 @@ const store = new Store({
     appInitialized: false,
     settingsVersion: 3,
     disableEndTime: null,
+    breakCompletionHistory: {},
   },
 });
 
@@ -33,15 +39,16 @@ export function getSettings(): Settings {
 }
 
 export function setSettings(settings: Settings, resetBreaks = true): void {
+  const nextSettings = normalizeSettings(settings);
   const currentSettings = getSettings();
 
-  if (currentSettings.autoLaunch !== settings.autoLaunch) {
-    setAutoLauch(settings.autoLaunch);
+  if (currentSettings.autoLaunch !== nextSettings.autoLaunch) {
+    setAutoLauch(nextSettings.autoLaunch);
   }
 
-  store.set({ settings });
+  store.set({ settings: nextSettings });
 
-  if (!currentSettings.breaksEnabled && settings.breaksEnabled) {
+  if (!currentSettings.breaksEnabled && nextSettings.breaksEnabled) {
     resetTimeSinceLastBreak("Reset time since last break [enable]");
   }
 
@@ -69,4 +76,20 @@ export function setDisableEndTime(endTime: number | null): void {
 
 export function getDisableEndTime(): number | null {
   return store.get("disableEndTime");
+}
+
+export function getBreakCompletionHistory(): BreakCompletionHistory {
+  return (store.get("breakCompletionHistory") as BreakCompletionHistory) ?? {};
+}
+
+export function setBreakCompletionHistory(
+  breakCompletionHistory: BreakCompletionHistory,
+): void {
+  store.set("breakCompletionHistory", breakCompletionHistory);
+}
+
+export function resetLocalData(): void {
+  store.clear();
+  setAutoLauch(defaultSettings.autoLaunch);
+  initBreaks();
 }

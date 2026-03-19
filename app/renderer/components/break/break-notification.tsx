@@ -76,7 +76,7 @@ export function BreakNotification({
 
   return (
     <motion.div
-      className="flex flex-col w-full h-full z-20 rounded-xl overflow-hidden relative"
+      className="flex flex-col w-full min-h-full z-20 rounded-xl overflow-hidden relative"
       initial={{ opacity: 0, scale: 0.9, y: 10 }}
       animate={{ opacity: 1, scale: 1, y: 0 }}
       exit={{ opacity: 0, scale: 0.9, y: 10 }}
@@ -98,8 +98,8 @@ export function BreakNotification({
           }}
         />
       )}
-      <div className="flex justify-between items-center px-6 py-2 h-full">
-        <div className="flex flex-col justify-center">
+      <div className="flex justify-between items-start gap-6 px-6 py-4 h-full">
+        <div className="flex flex-1 flex-col justify-center min-w-0">
           <h2
             className="text-lg font-semibold tracking-tight"
             style={{ color: textColor }}
@@ -107,7 +107,7 @@ export function BreakNotification({
             {breakTitle}
           </h2>
           <p
-            className="text-sm opacity-80 font-medium whitespace-pre-line"
+            className="text-sm opacity-80 font-medium whitespace-pre-line break-words"
             style={{ color: textColor }}
           >
             {breakMessage}
@@ -117,8 +117,8 @@ export function BreakNotification({
             style={{ color: textColor }}
           >
             {phase === "grace"
-              ? "Start your break when ready..."
-              : `Break starting in ${secondsRemaining}s...`}
+              ? "Starte deine Pause, sobald du bereit bist ..."
+              : `Pause startet in ${secondsRemaining}s ...`}
           </p>
           {timeSinceLastBreak !== null && (
             <p
@@ -130,7 +130,7 @@ export function BreakNotification({
           )}
         </div>
 
-        <div className="flex justify-center gap-3 relative z-10">
+        <div className="flex shrink-0 justify-center gap-3 relative z-10 self-center">
           <div className="relative">
             <div
               className="absolute inset-0 rounded-md"
@@ -145,7 +145,7 @@ export function BreakNotification({
                 borderColor: "rgba(255, 255, 255, 0.2)",
               }}
             >
-              Start
+              Starten
             </Button>
           </div>
           {postponeBreakEnabled && (
@@ -163,7 +163,7 @@ export function BreakNotification({
                   borderColor: "rgba(255, 255, 255, 0.2)",
                 }}
               >
-                Snooze
+                Verschieben
               </Button>
             </div>
           )}
@@ -182,7 +182,7 @@ export function BreakNotification({
                   borderColor: "rgba(255, 255, 255, 0.2)",
                 }}
               >
-                Skip
+                Überspringen
               </Button>
             </div>
           )}

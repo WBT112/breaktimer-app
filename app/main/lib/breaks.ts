@@ -16,6 +16,8 @@ import {
 } from "../../types/settings";
 import {
   BreakDefinitionState,
+  advanceStatePastTime,
+  findNextOccurrenceAfter,
   consumeNextOccurrence,
   createDefinitionState,
   deferStateForIdle,
@@ -26,9 +28,18 @@ import {
 } from "./break-schedule";
 import { sendIpc } from "./ipc";
 import { showNotification } from "./notifications";
-import { getSettings } from "./store";
+import {
+  getBreakCompletionHistory,
+  getSettings,
+  setBreakCompletionHistory,
+} from "./store";
 import { buildTray } from "./tray";
 import { createBreakWindows } from "./windows";
+import {
+  getCompletedCountForDay,
+  hasRemainingDailyCapacity as hasRemainingBreakCapacity,
+  recordCompletedBreak,
+} from "./break-progress";
 
 function stripHtml(html: string): string {
   return html
@@ -122,8 +133,8 @@ function createIdleNotification(): void {
 
   if (settings.idleResetNotification) {
     showNotification(
-      "Break automatically detected",
-      `Away for ${zeroPad(idleHours)}:${zeroPad(idleMinutes)}:${zeroPad(
+      "Pause automatisch erkannt",
+      `Abwesend für ${zeroPad(idleHours)}:${zeroPad(idleMinutes)}:${zeroPad(
         idleSeconds,
       )}`,
     );
@@ -143,8 +154,35 @@ let startedFromTray = false;
 let lastCompletedBreakTime: Date | null = new Date();
 let currentBreakStartTime: Date | null = null;
 
+function getCompletedBreakCount(
+  definitionId: string,
+  dayStartMs: number,
+): number {
+  return getCompletedCountForDay(
+    getBreakCompletionHistory(),
+    definitionId,
+    dayStartMs,
+  );
+}
+
+function hasRemainingDailyCapacity(
+  definition: BreakDefinition,
+  dayStartMs: number,
+): boolean {
+  return hasRemainingBreakCapacity(
+    definition.maxOccurrencesPerDay,
+    getCompletedBreakCount(definition.id, dayStartMs),
+  );
+}
+
+function hasQueuedOccurrence(definitionId: string): boolean {
+  return dueQueue.some(
+    (occurrence) => occurrence.breakDefinitionId === definitionId,
+  );
+}
+
 export function getBreakTime(): BreakTime {
-  const nextOccurrence = getNextOccurrenceCandidate();
+  const nextOccurrence = getNextDisplayOccurrenceCandidate();
   return nextOccurrence ? moment(nextOccurrence.dueAtMs) : null;
 }
 
@@ -179,6 +217,16 @@ export function resetTimeSinceLastBreak(context: string): void {
 }
 
 function markBreakCompleted(context: string): void {
+  if (activeBreakContext) {
+    setBreakCompletionHistory(
+      recordCompletedBreak(
+        getBreakCompletionHistory(),
+        activeBreakContext.breakDefinition.id,
+        Date.now(),
+      ),
+    );
+  }
+
   resetTimeSinceLastBreak(context);
   currentBreakStartTime = null;
 }
@@ -223,7 +271,11 @@ function getNextOccurrenceCandidate(): ScheduledBreakOccurrence | null {
     const state = breakStates.get(definition.id);
     const dueAtMs = state ? getNextDueAtMs(state) : null;
 
-    if (dueAtMs === null) {
+    if (state === undefined || dueAtMs === null) {
+      continue;
+    }
+
+    if (!hasRemainingDailyCapacity(definition, state.dayStartMs)) {
       continue;
     }
 
@@ -232,6 +284,60 @@ function getNextOccurrenceCandidate(): ScheduledBreakOccurrence | null {
         breakDefinitionId: definition.id,
         dueAtMs,
         sequenceIndex: state?.nextIndex ?? null,
+        postponeCount: 0,
+        source: "scheduled",
+      };
+    }
+  }
+
+  if (!queuedOccurrence) {
+    return scheduledOccurrence;
+  }
+
+  if (!scheduledOccurrence) {
+    return queuedOccurrence;
+  }
+
+  return queuedOccurrence.dueAtMs <= scheduledOccurrence.dueAtMs
+    ? queuedOccurrence
+    : scheduledOccurrence;
+}
+
+function getNextDisplayOccurrenceCandidate(): ScheduledBreakOccurrence | null {
+  const queuedOccurrence = dueQueue[0] ?? null;
+  const settings = getSettings();
+  let scheduledOccurrence: ScheduledBreakOccurrence | null = null;
+
+  for (const definition of getEnabledBreakDefinitions(settings)) {
+    const dueAtMs = findNextOccurrenceAfter(
+      definition,
+      Date.now(),
+      (occurrenceTimeMs) =>
+        hasRemainingDailyCapacity(
+          definition,
+          getDayStartMs(occurrenceTimeMs),
+        ) &&
+        canOccurrenceRunInWorkingHours(
+          {
+            breakDefinitionId: definition.id,
+            dueAtMs: occurrenceTimeMs,
+            sequenceIndex: null,
+            postponeCount: 0,
+            source: "scheduled",
+          },
+          settings,
+        ),
+    );
+
+    if (dueAtMs === null) {
+      continue;
+    }
+
+    if (!scheduledOccurrence || dueAtMs < scheduledOccurrence.dueAtMs) {
+      scheduledOccurrence = {
+        breakDefinitionId: definition.id,
+        dueAtMs,
+        sequenceIndex: null,
         postponeCount: 0,
         source: "scheduled",
       };
@@ -446,6 +552,19 @@ function enqueueDueScheduledOccurrences(
   for (const definition of getEnabledBreakDefinitions(settings)) {
     let state = getDefinitionState(definition, nowMs);
 
+    if (!hasRemainingDailyCapacity(definition, state.dayStartMs)) {
+      setDefinitionState(state);
+      continue;
+    }
+
+    if (
+      activeBreakContext?.breakDefinition.id === definition.id ||
+      hasQueuedOccurrence(definition.id)
+    ) {
+      setDefinitionState(advanceStatePastTime(state, nowMs));
+      continue;
+    }
+
     while (true) {
       const dueAtMs = getNextDueAtMs(state);
 
@@ -471,8 +590,12 @@ function enqueueDueScheduledOccurrences(
         break;
       }
 
-      queueOccurrence(occurrence);
-      state = consumeNextOccurrence(state);
+      queueOccurrence({
+        ...occurrence,
+        dueAtMs: nowMs,
+      });
+      state = advanceStatePastTime(state, nowMs);
+      break;
     }
 
     setDefinitionState(state);

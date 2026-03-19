@@ -47,8 +47,8 @@ export default function BreaksCard({
 
   return (
     <SettingsCard
-      title="Breaks"
-      helperText="Create multiple breaks with independent schedules, content, snooze, and sound."
+      title="Pausen"
+      helperText="Erstelle mehrere Pausen mit eigenem Zeitplan, Inhalt, Verschiebung und Ton."
       toggle={{
         checked: settingsDraft.breaksEnabled,
         onCheckedChange: (checked) => onSwitchChange("breaksEnabled", checked),
@@ -75,7 +75,7 @@ export default function BreaksCard({
           onClick={handleAddBreakDefinition}
         >
           <Plus className="h-4 w-4" />
-          Add break
+          Pause hinzufügen
         </Button>
       </div>
     </SettingsCard>

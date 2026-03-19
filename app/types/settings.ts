@@ -89,13 +89,28 @@ export function createDefaultBreakDefinition(
     startTimeSeconds: 8 * 60 * 60,
     intervalSeconds: 2 * 60 * 60,
     maxOccurrencesPerDay: 4,
-    breakTitle: "Time for a break.",
-    breakMessage: "Rest your eyes.\nStretch your legs.\nBreathe. Relax.",
+    breakTitle: "Zeit für eine Pause.",
+    breakMessage:
+      "Entspanne deine Augen.\nStreck deine Beine.\nAtme tief durch.",
     breakLengthSeconds: 2 * 60,
     postponeLengthSeconds: 3 * 60,
     postponeLimit: 0,
     soundType: SoundType.Gong,
     breakSoundVolume: 1,
+  };
+}
+
+export function normalizeSettings(settings: Settings): Settings {
+  if (settings.breaksEnabled) {
+    return settings;
+  }
+
+  return {
+    ...settings,
+    breakDefinitions: settings.breakDefinitions.map((breakDefinition) => ({
+      ...breakDefinition,
+      enabled: false,
+    })),
   };
 }
 
@@ -160,11 +175,11 @@ export interface DayConfig {
 }
 
 export const daysConfig: DayConfig[] = [
-  { key: "workingHoursMonday", label: "Monday" },
-  { key: "workingHoursTuesday", label: "Tuesday" },
-  { key: "workingHoursWednesday", label: "Wednesday" },
-  { key: "workingHoursThursday", label: "Thursday" },
-  { key: "workingHoursFriday", label: "Friday" },
-  { key: "workingHoursSaturday", label: "Saturday" },
-  { key: "workingHoursSunday", label: "Sunday" },
+  { key: "workingHoursMonday", label: "Montag" },
+  { key: "workingHoursTuesday", label: "Dienstag" },
+  { key: "workingHoursWednesday", label: "Mittwoch" },
+  { key: "workingHoursThursday", label: "Donnerstag" },
+  { key: "workingHoursFriday", label: "Freitag" },
+  { key: "workingHoursSaturday", label: "Samstag" },
+  { key: "workingHoursSunday", label: "Sonntag" },
 ];

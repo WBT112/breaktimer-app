@@ -27,14 +27,15 @@ export default function WelcomeModal({ open, onClose }: WelcomeModalProps) {
         showCloseButton={false}
       >
         <DialogHeader className="text-left">
-          <DialogTitle>BreakTimer runs in the background</DialogTitle>
+          <DialogTitle>BreakTimer läuft im Hintergrund</DialogTitle>
           <DialogDescription className="text-base leading-relaxed text-balance pt-2">
-            The app can be accessed via your system tray.
+            Die App ist jederzeit über dein Tray- oder Menüleistensymbol
+            erreichbar.
           </DialogDescription>
         </DialogHeader>
         <DialogFooter>
           <Button onClick={handleUnderstood} className="w-full">
-            Understood, let&apos;s go!
+            Verstanden, los geht&apos;s!
           </Button>
         </DialogFooter>
       </DialogContent>

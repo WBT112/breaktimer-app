@@ -17,8 +17,8 @@ export default function SmartBreaksCard({
 }: SmartBreaksCardProps) {
   return (
     <SettingsCard
-      title="Smart Breaks"
-      helperText="Automatically detect natural breaks and reset the break timer."
+      title="Intelligente Pausen"
+      helperText="Erkennt natürliche Unterbrechungen automatisch und setzt den Pausentimer zurück."
       toggle={{
         checked: settingsDraft.idleResetEnabled,
         onCheckedChange: (checked) =>
@@ -27,7 +27,9 @@ export default function SmartBreaksCard({
     >
       <div className="space-y-4">
         <div className="space-y-2">
-          <Label className="text-sm font-medium">Minimum idle time</Label>
+          <Label className="text-sm font-medium">
+            Minimale Inaktivitätszeit
+          </Label>
           <TimeInput
             precision="seconds"
             value={settingsDraft.idleResetLengthSeconds}
@@ -49,7 +51,9 @@ export default function SmartBreaksCard({
             }
             disabled={!settingsDraft.idleResetEnabled}
           />
-          <Label>Show notification when break automatically detected</Label>
+          <Label>
+            Benachrichtigung anzeigen, wenn eine Pause automatisch erkannt wurde
+          </Label>
         </div>
       </div>
     </SettingsCard>

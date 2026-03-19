@@ -68,8 +68,8 @@ function checkForUpdates(): void {
       const downloadUrl = getDownloadUrl();
 
       showNotification(
-        "Update Available",
-        "A new version of BreakTimer is available. Click to download.",
+        "Update verfügbar",
+        "Eine neue Version von BreakTimer ist verfügbar. Klicke zum Herunterladen.",
         () => {
           shell.openExternal(downloadUrl).catch((error) => {
             log.error(`Failed to open download URL: ${error}`);

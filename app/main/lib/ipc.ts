@@ -18,6 +18,7 @@ import {
   setSettings,
   getAppInitialized,
   setAppInitialized,
+  resetLocalData,
 } from "./store";
 import { buildTray } from "./tray";
 import { getWindows } from "./windows";
@@ -96,6 +97,12 @@ ipcMain.handle(
   },
 );
 
+ipcMain.handle(IpcChannel.LocalDataReset, (): void => {
+  log.info(IpcChannel.LocalDataReset);
+  resetLocalData();
+  buildTray();
+});
+
 ipcMain.handle(IpcChannel.BreakLengthGet, (): number => {
   log.info(IpcChannel.BreakLengthGet);
   return getBreakLengthSeconds();
@@ -103,14 +110,27 @@ ipcMain.handle(IpcChannel.BreakLengthGet, (): number => {
 
 ipcMain.handle(
   IpcChannel.BreakWindowResize,
-  (event: IpcMainInvokeEvent): void => {
+  (
+    event: IpcMainInvokeEvent,
+    size?: { width: number; height: number },
+  ): void => {
     log.info(IpcChannel.BreakWindowResize);
     const window = BrowserWindow.fromWebContents(event.sender);
     if (window) {
       const display = screen.getDisplayNearestPoint(window.getBounds());
       const settings = getSettings();
 
-      if (settings.showBackdrop) {
+      if (size) {
+        const width = Math.ceil(size.width);
+        const height = Math.ceil(size.height);
+        const x = Math.round(
+          display.bounds.x + display.bounds.width / 2 - width / 2,
+        );
+        const y = display.bounds.y + 50;
+
+        window.setSize(width, height);
+        window.setPosition(x, y);
+      } else if (settings.showBackdrop) {
         // Fullscreen for backdrop mode
         window.setSize(display.bounds.width, display.bounds.height);
         window.setPosition(display.bounds.x, display.bounds.y);

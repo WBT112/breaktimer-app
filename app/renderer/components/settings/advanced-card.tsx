@@ -19,7 +19,7 @@ export default function AdvancedCard({
   );
 
   return (
-    <SettingsCard title="Advanced">
+    <SettingsCard title="Erweitert">
       <div className="space-y-4">
         <div className="flex items-center space-x-2">
           <Switch
@@ -29,7 +29,7 @@ export default function AdvancedCard({
             }
             disabled={!hasPopupBreaks}
           />
-          <Label>Immediately start breaks</Label>
+          <Label>Pausen sofort starten</Label>
         </div>
 
         <div className="flex items-center space-x-2">
@@ -39,7 +39,7 @@ export default function AdvancedCard({
               onSwitchChange("endBreakEnabled", checked)
             }
           />
-          <Label>Allow ending break early</Label>
+          <Label>Vorzeitiges Beenden erlauben</Label>
         </div>
       </div>
     </SettingsCard>

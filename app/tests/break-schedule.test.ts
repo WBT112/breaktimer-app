@@ -4,6 +4,7 @@ import {
   advanceStatePastInvalidOccurrences,
   buildDailyOccurrences,
   createDefinitionState,
+  findNextOccurrenceAfter,
   getDayStartMs,
   shiftStateAfterIdle,
   sortOccurrencesByDueAt,
@@ -33,12 +34,13 @@ describe("break schedule", () => {
 
     const occurrences = buildDailyOccurrences(definition, dayStartMs);
 
-    expect(occurrences).toEqual([
+    expect(occurrences.slice(0, 4)).toEqual([
       dayStartMs + 8 * 60 * 60 * 1000,
       dayStartMs + 10 * 60 * 60 * 1000,
       dayStartMs + 12 * 60 * 60 * 1000,
       dayStartMs + 14 * 60 * 60 * 1000,
     ]);
+    expect(occurrences[4]).toBe(dayStartMs + 16 * 60 * 60 * 1000);
   });
 
   it("supports a once-daily break via a 24-hour interval and limit 1", () => {
@@ -131,7 +133,7 @@ describe("break schedule", () => {
     );
 
     expect(shiftedState.nextIndex).toBe(2);
-    expect(shiftedState.occurrencesMs).toEqual([
+    expect(shiftedState.occurrencesMs.slice(0, 4)).toEqual([
       dayStartMs + 8 * 60 * 60 * 1000,
       dayStartMs + 10 * 60 * 60 * 1000,
       dayStartMs + 12 * 60 * 60 * 1000 + 30 * 60 * 1000,
@@ -155,5 +157,26 @@ describe("break schedule", () => {
     expect(secondState.dayStartMs).not.toBe(firstState.dayStartMs);
     expect(secondState.dayStartMs).toBe(getDayStartMs(secondDayMs));
     expect(secondState.nextIndex).toBe(1);
+  });
+
+  it("finds the next valid occurrence later the same day when slots remain", () => {
+    const nowMs = new Date(2026, 2, 19, 17, 30).getTime();
+    const definition = createBreakDefinition({
+      startTimeSeconds: 8 * 60 * 60,
+      intervalSeconds: 2 * 60 * 60,
+      maxOccurrencesPerDay: 4,
+    });
+
+    const nextOccurrence = findNextOccurrenceAfter(
+      definition,
+      nowMs,
+      (dueAtMs) => {
+        const hour = new Date(dueAtMs).getHours();
+        return hour >= 8 && hour <= 18;
+      },
+      2,
+    );
+
+    expect(nextOccurrence).toBe(new Date(2026, 2, 19, 18, 0).getTime());
   });
 });

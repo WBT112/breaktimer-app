@@ -22,15 +22,15 @@ export default function TrayCard({
 }: TrayCardProps) {
   return (
     <SettingsCard
-      title="Menu Bar Text"
-      helperText="Show timing information next to the menu bar icon."
+      title="Text in der Menüleiste"
+      helperText="Zeigt Zeitinformationen neben dem Symbol in der Menüleiste an."
       toggle={{
         checked: settingsDraft.trayTextEnabled,
         onCheckedChange: (checked) =>
           onSwitchChange("trayTextEnabled", checked),
       }}
     >
-      <FormGroup label="Text">
+      <FormGroup label="Anzeige">
         <Select
           value={settingsDraft.trayTextMode}
           disabled={!settingsDraft.trayTextEnabled}
@@ -41,10 +41,10 @@ export default function TrayCard({
           </SelectTrigger>
           <SelectContent>
             <SelectItem value={TrayTextMode.TimeToNextBreak}>
-              Time to next break
+              Zeit bis zur nächsten Pause
             </SelectItem>
             <SelectItem value={TrayTextMode.TimeSinceLastBreak}>
-              Time since last break
+              Zeit seit der letzten Pause
             </SelectItem>
           </SelectContent>
         </Select>

@@ -12,8 +12,8 @@ export default function SnoozeCard({
 }: SnoozeCardProps) {
   return (
     <SettingsCard
-      title="Snooze"
-      helperText="Snoozing allows you to postpone breaks when busy. Per-break snooze length and limit are configured in each break."
+      title="Verschieben"
+      helperText="Damit kannst du Pausen verschieben, wenn du gerade beschäftigt bist. Dauer und Limit legst du pro Pause fest."
       toggle={{
         checked:
           settingsDraft.postponeBreakEnabled &&

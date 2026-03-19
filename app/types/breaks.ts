@@ -17,3 +17,15 @@ export interface ActiveBreakContext {
   breakDefinition: BreakDefinition;
   occurrence: ScheduledBreakOccurrence;
 }
+
+export interface BreakCompletionHistoryEntry {
+  definitionId: string;
+  dayStartMs: number;
+  completedCount: number;
+  lastCompletedAtMs: number | null;
+}
+
+export type BreakCompletionHistory = Record<
+  string,
+  BreakCompletionHistoryEntry
+>;

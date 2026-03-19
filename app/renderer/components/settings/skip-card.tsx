@@ -12,8 +12,8 @@ export default function SkipCard({
 }: SkipCardProps) {
   return (
     <SettingsCard
-      title="Skip"
-      helperText="Allow skipping breaks entirely without rescheduling them."
+      title="Überspringen"
+      helperText="Erlaubt das vollständige Überspringen von Pausen ohne neue Terminierung."
       toggle={{
         checked:
           settingsDraft.skipBreakEnabled &&

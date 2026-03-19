@@ -12,8 +12,8 @@ export default function StartupCard({
 }: StartupCardProps) {
   return (
     <SettingsCard
-      title="Start at login"
-      helperText="Automatically start BreakTimer when you log into your computer."
+      title="Beim Anmelden starten"
+      helperText="Startet BreakTimer automatisch, wenn du dich an deinem Computer anmeldest."
       toggle={{
         checked: settingsDraft.autoLaunch,
         onCheckedChange: (checked) => onSwitchChange("autoLaunch", checked),

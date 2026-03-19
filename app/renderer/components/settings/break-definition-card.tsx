@@ -33,7 +33,7 @@ function getBreakLabel(
   index: number,
 ): string {
   const title = breakDefinition.breakTitle.trim();
-  return title || `Break ${index + 1}`;
+  return title || `Pause ${index + 1}`;
 }
 
 export default function BreakDefinitionCard({
@@ -60,7 +60,7 @@ export default function BreakDefinitionCard({
             {getBreakLabel(breakDefinition, index)}
           </h4>
           <p className="text-sm text-muted-foreground">
-            Configure this break&apos;s schedule, message, snooze, and sound.
+            Plane diese Pause mit eigenem Zeitplan, Text, Verschiebung und Ton.
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -76,7 +76,7 @@ export default function BreakDefinitionCard({
             size="icon"
             variant="ghost"
             onClick={onDelete}
-            aria-label={`Delete ${getBreakLabel(breakDefinition, index)}`}
+            aria-label={`${getBreakLabel(breakDefinition, index)} löschen`}
           >
             <Trash2 className="h-4 w-4" />
           </Button>
@@ -85,7 +85,7 @@ export default function BreakDefinitionCard({
 
       <div className="grid grid-cols-3 gap-4">
         <div className="space-y-2">
-          <Label className="text-sm font-medium">Type</Label>
+          <Label className="text-sm font-medium">Typ</Label>
           <Select
             value={breakDefinition.notificationType}
             onValueChange={(value) =>
@@ -100,16 +100,16 @@ export default function BreakDefinitionCard({
             </SelectTrigger>
             <SelectContent>
               <SelectItem value={NotificationType.Popup}>
-                Popup break
+                Popup-Pause
               </SelectItem>
               <SelectItem value={NotificationType.Notification}>
-                Simple notification
+                Einfache Benachrichtigung
               </SelectItem>
             </SelectContent>
           </Select>
         </div>
         <div className="space-y-2">
-          <Label className="text-sm font-medium">Start time</Label>
+          <Label className="text-sm font-medium">Startzeit</Label>
           <TimeInput
             value={breakDefinition.startTimeSeconds}
             onChange={(startTimeSeconds) =>
@@ -120,7 +120,7 @@ export default function BreakDefinitionCard({
           />
         </div>
         <div className="space-y-2">
-          <Label className="text-sm font-medium">Interval</Label>
+          <Label className="text-sm font-medium">Intervall</Label>
           <TimeInput
             value={breakDefinition.intervalSeconds}
             onChange={(intervalSeconds) =>
@@ -135,11 +135,11 @@ export default function BreakDefinitionCard({
 
       <div className="grid grid-cols-3 gap-4">
         <div className="space-y-2">
-          <Label className="text-sm font-medium">Daily limit</Label>
+          <Label className="text-sm font-medium">Tageslimit</Label>
           <Input
             type="number"
             min={1}
-            placeholder="No limit"
+            placeholder="Kein Limit"
             value={breakDefinition.maxOccurrencesPerDay ?? ""}
             onChange={(event) => {
               const rawValue = event.target.value.trim();
@@ -155,7 +155,7 @@ export default function BreakDefinitionCard({
           />
         </div>
         <div className="space-y-2">
-          <Label className="text-sm font-medium">Length</Label>
+          <Label className="text-sm font-medium">Dauer</Label>
           <TimeInput
             value={breakDefinition.breakLengthSeconds}
             onChange={(breakLengthSeconds) =>
@@ -169,7 +169,7 @@ export default function BreakDefinitionCard({
           />
         </div>
         <div className="space-y-2">
-          <Label className="text-sm font-medium">Snooze length</Label>
+          <Label className="text-sm font-medium">Verschieben um</Label>
           <TimeInput
             value={breakDefinition.postponeLengthSeconds}
             onChange={(postponeLengthSeconds) =>
@@ -183,7 +183,7 @@ export default function BreakDefinitionCard({
 
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
-          <Label className="text-sm font-medium">Snooze limit</Label>
+          <Label className="text-sm font-medium">Verschiebelimit</Label>
           <Select
             value={breakDefinition.postponeLimit.toString()}
             onValueChange={(value) =>
@@ -200,12 +200,12 @@ export default function BreakDefinitionCard({
               <SelectItem value="3">3</SelectItem>
               <SelectItem value="4">4</SelectItem>
               <SelectItem value="5">5</SelectItem>
-              <SelectItem value="0">No limit</SelectItem>
+              <SelectItem value="0">Kein Limit</SelectItem>
             </SelectContent>
           </Select>
         </div>
         <div className="space-y-2">
-          <Label className="text-sm font-medium">Break sound</Label>
+          <Label className="text-sm font-medium">Pausenton</Label>
           <SoundSelect
             value={breakDefinition.soundType}
             onChange={(soundType) => updateBreakDefinition({ soundType })}
@@ -216,7 +216,7 @@ export default function BreakDefinitionCard({
       </div>
 
       <div className="space-y-2">
-        <Label className="text-sm font-medium">Break sound volume</Label>
+        <Label className="text-sm font-medium">Lautstärke des Pausentons</Label>
         <div className="px-2">
           <Slider
             min={0}
@@ -237,7 +237,7 @@ export default function BreakDefinitionCard({
       </div>
 
       <div className="space-y-2">
-        <Label className="text-sm font-medium">Title</Label>
+        <Label className="text-sm font-medium">Titel</Label>
         <Input
           className="text-sm"
           value={breakDefinition.breakTitle}
@@ -249,7 +249,7 @@ export default function BreakDefinitionCard({
       </div>
 
       <div className="space-y-2">
-        <Label className="text-sm font-medium">Message</Label>
+        <Label className="text-sm font-medium">Nachricht</Label>
         <Textarea
           className="text-sm resize-none"
           rows={3}
@@ -258,7 +258,7 @@ export default function BreakDefinitionCard({
             updateBreakDefinition({ breakMessage: event.target.value })
           }
           disabled={disabled}
-          placeholder="Enter your break message..."
+          placeholder="Pausentext eingeben ..."
         />
       </div>
     </div>

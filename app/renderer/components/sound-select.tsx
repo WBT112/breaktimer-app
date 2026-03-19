@@ -34,12 +34,12 @@ export function SoundSelect({
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value={SoundType.None}>None</SelectItem>
+          <SelectItem value={SoundType.None}>Kein Ton</SelectItem>
           <SelectItem value={SoundType.Gong}>Gong</SelectItem>
           <SelectItem value={SoundType.Blip}>Blip</SelectItem>
           <SelectItem value={SoundType.Bloop}>Bloop</SelectItem>
           <SelectItem value={SoundType.Ping}>Ping</SelectItem>
-          <SelectItem value={SoundType.Scifi}>Sci-fi</SelectItem>
+          <SelectItem value={SoundType.Scifi}>Sci-Fi</SelectItem>
         </SelectContent>
       </Select>
       {value !== SoundType.None && (

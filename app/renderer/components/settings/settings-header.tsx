@@ -13,12 +13,12 @@ export default function SettingsHeader(props: Props) {
     <div className="border-b border-border bg-background">
       <nav className="flex items-center justify-between p-4 h-16 min-h-16">
         <div className="flex items-center">
-          <h1 className="text-2xl font-bold text-foreground">Settings</h1>
+          <h1 className="text-2xl font-bold text-foreground">Einstellungen</h1>
         </div>
         {showSave && (
           <div className="flex items-center">
             <Button variant="outline" onClick={handleSave}>
-              Save
+              Speichern
             </Button>
           </div>
         )}
@@ -29,9 +29,9 @@ export default function SettingsHeader(props: Props) {
             processEnv.SNAP === undefined ? "grid-cols-4" : "grid-cols-3"
           }`}
         >
-          <TabsTrigger value="break-settings">General</TabsTrigger>
-          <TabsTrigger value="working-hours">Working Hours</TabsTrigger>
-          <TabsTrigger value="customization">Customization</TabsTrigger>
+          <TabsTrigger value="break-settings">Allgemein</TabsTrigger>
+          <TabsTrigger value="working-hours">Arbeitszeiten</TabsTrigger>
+          <TabsTrigger value="customization">Anpassung</TabsTrigger>
           {processEnv.SNAP === undefined && (
             <TabsTrigger value="system">System</TabsTrigger>
           )}

@@ -22,8 +22,8 @@ export default function BackdropCard({
 
   return (
     <SettingsCard
-      title="Backdrop"
-      helperText="Show a colored overlay behind break windows to limit distractions."
+      title="Hintergrund"
+      helperText="Zeigt hinter Pausenfenstern eine farbige Überlagerung, um Ablenkungen zu reduzieren."
       toggle={{
         checked: settingsDraft.showBackdrop,
         onCheckedChange: (checked) => onSwitchChange("showBackdrop", checked),
@@ -31,7 +31,7 @@ export default function BackdropCard({
       }}
     >
       <div className="space-y-2">
-        <Label className="text-sm font-medium">Opacity</Label>
+        <Label className="text-sm font-medium">Deckkraft</Label>
         <div className="px-2">
           <Slider
             min={0.2}

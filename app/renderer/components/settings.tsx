@@ -1,6 +1,11 @@
 import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { useEffect, useMemo, useState } from "react";
-import { BreakDefinition, Settings, TrayTextMode } from "../../types/settings";
+import {
+  BreakDefinition,
+  normalizeSettings,
+  Settings,
+  TrayTextMode,
+} from "../../types/settings";
 import { toast } from "../toaster";
 import AdvancedCard from "./settings/advanced-card";
 import BackdropCard from "./settings/backdrop-card";
@@ -12,6 +17,7 @@ import SmartBreaksCard from "./settings/smart-breaks-card";
 import SnoozeCard from "./settings/snooze-card";
 import StartupCard from "./settings/startup-card";
 import ThemeCard from "./settings/theme-card";
+import TroubleshootingCard from "./settings/troubleshooting-card";
 import TrayCard from "./settings/tray-card";
 import WorkingHoursSettings from "./settings/working-hours";
 import WelcomeModal from "./welcome-modal";
@@ -21,15 +27,18 @@ export default function SettingsEl() {
   const [settings, setSettings] = useState<Settings | null>(null);
   const [showWelcomeModal, setShowWelcomeModal] = useState(false);
 
+  const loadSettings = async () => {
+    const settings = (await ipcRenderer.invokeGetSettings()) as Settings;
+    setSettingsDraft(settings);
+    setSettings(settings);
+
+    const appInitialized = await ipcRenderer.invokeGetAppInitialized();
+    setShowWelcomeModal(!appInitialized);
+  };
+
   useEffect(() => {
     (async () => {
-      const settings = (await ipcRenderer.invokeGetSettings()) as Settings;
-      setSettingsDraft(settings);
-      setSettings(settings);
-
-      // Check if this is the first time running the app
-      const appInitialized = await ipcRenderer.invokeGetAppInitialized();
-      setShowWelcomeModal(!appInitialized);
+      await loadSettings();
     })();
   }, []);
 
@@ -66,10 +75,16 @@ export default function SettingsEl() {
   };
 
   const handleSwitchChange = (field: string, checked: boolean): void => {
-    setSettingsDraft({
+    const nextSettingsDraft = {
       ...settingsDraft,
       [field]: checked,
-    });
+    };
+
+    setSettingsDraft(
+      field === "breaksEnabled" && !checked
+        ? normalizeSettings(nextSettingsDraft)
+        : nextSettingsDraft,
+    );
   };
 
   const handleResetColors = (): void => {
@@ -118,8 +133,22 @@ export default function SettingsEl() {
 
   const handleSave = async () => {
     await ipcRenderer.invokeSetSettings(settingsDraft);
-    toast("Settings saved");
+    toast("Einstellungen gespeichert");
     setSettings(settingsDraft);
+  };
+
+  const handleResetLocalData = async () => {
+    const confirmed = window.confirm(
+      "Alle lokalen Einstellungen und den Pausenfortschritt auf diesem Computer löschen?",
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    await ipcRenderer.invokeResetLocalData();
+    await loadSettings();
+    toast("Lokale Einstellungen gelöscht");
   };
 
   return (
@@ -161,8 +190,8 @@ export default function SettingsEl() {
 
           <TabsContent value="working-hours" className="m-0 space-y-6">
             <SettingsCard
-              title="Working Hours"
-              helperText="Only show breaks during your configured work schedule."
+              title="Arbeitszeiten"
+              helperText="Pausen nur innerhalb deiner konfigurierten Arbeitszeiten anzeigen."
               toggle={{
                 checked: settingsDraft.workingHoursEnabled,
                 onCheckedChange: (checked) =>
@@ -204,6 +233,7 @@ export default function SettingsEl() {
                   onTrayTextModeChange={handleTrayTextModeChange}
                 />
               )}
+              <TroubleshootingCard onResetLocalData={handleResetLocalData} />
             </TabsContent>
           )}
         </div>

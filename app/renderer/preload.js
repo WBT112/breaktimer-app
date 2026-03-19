@@ -36,8 +36,11 @@ process.once("loaded", () => {
     invokeSetSettings: (settings) => {
       return ipcRenderer.invoke("SETTINGS_SET", settings);
     },
-    invokeBreakWindowResize: () => {
-      return ipcRenderer.invoke("BREAK_WINDOW_RESIZE");
+    invokeResetLocalData: () => {
+      return ipcRenderer.invoke("LOCAL_DATA_RESET");
+    },
+    invokeBreakWindowResize: (size) => {
+      return ipcRenderer.invoke("BREAK_WINDOW_RESIZE", size);
     },
     invokeGetTimeSinceLastBreak: () => {
       return ipcRenderer.invoke("TIME_SINCE_LAST_BREAK_GET");
