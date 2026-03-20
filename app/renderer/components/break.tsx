@@ -4,7 +4,11 @@ import { ActiveBreakContext } from "../../types/breaks";
 import { Settings, SoundType } from "../../types/settings";
 import { BreakNotification } from "./break/break-notification";
 import { BreakProgress } from "./break/break-progress";
-import { createDarkerRgba } from "./break/utils";
+import {
+  createDarkerRgba,
+  isPrimaryBreakWindow,
+  shouldRequestBreakStartAfterCountdown,
+} from "./break/utils";
 
 export default function Break() {
   const [activeBreak, setActiveBreak] = useState<ActiveBreakContext | null>(
@@ -22,6 +26,8 @@ export default function Break() {
     null,
   );
   const notificationRef = useRef<HTMLDivElement | null>(null);
+  const urlParams = new URLSearchParams(window.location.search);
+  const isPrimaryWindow = isPrimaryBreakWindow(urlParams.get("windowId"));
 
   useEffect(() => {
     const init = async () => {
@@ -66,9 +72,16 @@ export default function Break() {
     setTimeout(init, 1000);
   }, []);
 
-  const handleCountdownOver = useCallback(() => {
-    setCountingDown(false);
-  }, []);
+  const handleCountdownOver = useCallback(async () => {
+    if (
+      shouldRequestBreakStartAfterCountdown(
+        settings?.autoStartBreaksAfterCountdown ?? false,
+        isPrimaryWindow,
+      )
+    ) {
+      await ipcRenderer.invokeBreakStart();
+    }
+  }, [isPrimaryWindow, settings?.autoStartBreaksAfterCountdown]);
 
   const handleStartBreakNow = useCallback(async () => {
     await ipcRenderer.invokeBreakStart();
@@ -140,13 +153,8 @@ export default function Break() {
   }, []);
 
   const handleEndBreak = useCallback(async () => {
-    // Only play end sound from primary window
-    const urlParams = new URLSearchParams(window.location.search);
-    const windowId = urlParams.get("windowId");
-    const isPrimary = windowId === "0" || windowId === null;
-
     if (
-      isPrimary &&
+      isPrimaryWindow &&
       activeBreak &&
       activeBreak.breakDefinition.soundType !== SoundType.None
     ) {
@@ -158,7 +166,7 @@ export default function Break() {
 
     // Broadcast to all windows to start their closing animations
     await ipcRenderer.invokeBreakEnd();
-  }, [activeBreak]);
+  }, [activeBreak, isPrimaryWindow]);
 
   if (settings === null || allowPostpone === null || activeBreak === null) {
     return null;

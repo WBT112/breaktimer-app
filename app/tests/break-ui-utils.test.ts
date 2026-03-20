@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   getBreakNotificationPhase,
+  isPrimaryBreakWindow,
+  shouldRequestBreakStartAfterCountdown,
   shouldShowEndBreakButton,
 } from "../renderer/components/break/utils";
 describe("break ui utils", () => {
@@ -22,6 +24,18 @@ describe("break ui utils", () => {
       msRemaining: 0,
       shouldAutoStart: true,
     });
+  });
+
+  it("only requests the actual IPC break start from the primary break window", () => {
+    expect(shouldRequestBreakStartAfterCountdown(true, true)).toBe(true);
+    expect(shouldRequestBreakStartAfterCountdown(true, false)).toBe(false);
+    expect(shouldRequestBreakStartAfterCountdown(false, true)).toBe(false);
+  });
+
+  it("treats window 0 and missing ids as the primary break window", () => {
+    expect(isPrimaryBreakWindow("0")).toBe(true);
+    expect(isPrimaryBreakWindow(null)).toBe(true);
+    expect(isPrimaryBreakWindow("1")).toBe(false);
   });
 
   it("shows the end button once the target time is reached for manually ended breaks", () => {

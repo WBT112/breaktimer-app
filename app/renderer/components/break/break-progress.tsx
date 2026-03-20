@@ -3,7 +3,11 @@ import { motion } from "framer-motion";
 import moment from "moment";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { BreakDefinition, SoundType } from "../../../types/settings";
-import { shouldShowEndBreakButton, TimeRemaining } from "./utils";
+import {
+  isPrimaryBreakWindow,
+  shouldShowEndBreakButton,
+  TimeRemaining,
+} from "./utils";
 
 interface BreakProgressProps {
   breakDefinition: BreakDefinition;
@@ -38,8 +42,7 @@ export function BreakProgress({
 
   const isPrimaryWindow = useMemo(() => {
     const urlParams = new URLSearchParams(window.location.search);
-    const windowId = urlParams.get("windowId");
-    return windowId === "0" || windowId === null;
+    return isPrimaryBreakWindow(urlParams.get("windowId"));
   }, []);
 
   useEffect(() => {

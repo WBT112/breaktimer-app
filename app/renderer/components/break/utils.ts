@@ -35,6 +35,10 @@ export interface TimeRemaining {
 
 export type BreakNotificationPhase = "grace" | "countdown" | "ready";
 
+export function isPrimaryBreakWindow(windowId: string | null): boolean {
+  return windowId === "0" || windowId === null;
+}
+
 export function getBreakNotificationPhase(
   elapsedMs: number,
   autoStartBreaksAfterCountdown: boolean,
@@ -66,6 +70,13 @@ export function getBreakNotificationPhase(
     msRemaining: 0,
     shouldAutoStart: autoStartBreaksAfterCountdown,
   };
+}
+
+export function shouldRequestBreakStartAfterCountdown(
+  autoStartBreaksAfterCountdown: boolean,
+  isPrimaryWindow: boolean,
+): boolean {
+  return autoStartBreaksAfterCountdown && isPrimaryWindow;
 }
 
 export function shouldShowEndBreakButton(
