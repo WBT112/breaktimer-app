@@ -4,7 +4,9 @@ import { BreakDefinitionPreview } from "../../../types/breaks";
 import {
   BreakDefinition,
   createDefaultBreakDefinition,
+  DEFAULT_BREAK_CATEGORY_ID,
   Settings,
+  getBreakCategories,
 } from "../../../types/settings";
 import BreakDefinitionCard from "./break-definition-card";
 import SettingsCard from "./settings-card";
@@ -22,6 +24,8 @@ export default function BreaksCard({
   onSwitchChange,
   onBreakDefinitionsChange,
 }: BreaksCardProps) {
+  const categories = getBreakCategories(settingsDraft);
+
   const handleBreakDefinitionChange = (
     definitionId: string,
     nextDefinition: BreakDefinition,
@@ -37,6 +41,7 @@ export default function BreaksCard({
     onBreakDefinitionsChange([
       ...settingsDraft.breakDefinitions,
       createDefaultBreakDefinition(undefined, {
+        categoryId: DEFAULT_BREAK_CATEGORY_ID,
         backgroundColor: settingsDraft.backgroundColor,
         textColor: settingsDraft.textColor,
       }),
@@ -66,6 +71,7 @@ export default function BreaksCard({
             key={breakDefinition.id}
             breakDefinition={breakDefinition}
             breaksEnabled={settingsDraft.breaksEnabled}
+            categories={categories}
             index={index}
             preview={
               breakPreviews.find(

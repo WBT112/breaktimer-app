@@ -4,15 +4,19 @@ import {
   advanceStateAfterQueuedOccurrence,
   advanceStatePastInvalidOccurrences,
   buildDailyOccurrences,
+  createAdaptiveDefinitionState,
   createDefinitionState,
   findNextOccurrenceAfter,
   getDayStartMs,
+  getWorkingTimeRangesForDay,
   shiftStateAfterIdle,
   sortOccurrencesByDueAt,
 } from "../main/lib/break-schedule";
 import {
   BreakDefinition,
   createDefaultBreakDefinition,
+  defaultSettings,
+  Settings,
 } from "../types/settings";
 
 function createBreakDefinition(
@@ -21,6 +25,17 @@ function createBreakDefinition(
   return {
     ...createDefaultBreakDefinition("test-break"),
     ...overrides,
+  };
+}
+
+function createSettings(
+  breakDefinitionOverrides: Partial<BreakDefinition> = {},
+  settingsOverrides: Partial<Settings> = {},
+): Settings {
+  return {
+    ...defaultSettings,
+    breakDefinitions: [createBreakDefinition(breakDefinitionOverrides)],
+    ...settingsOverrides,
   };
 }
 
@@ -229,6 +244,201 @@ describe("break schedule", () => {
     expect(updatedState.nextIndex).toBe(3);
     expect(updatedState.occurrencesMs[updatedState.nextIndex]).toBe(
       dayStartMs + 9 * 60 * 60 * 1000 + 30 * 60 * 1000,
+    );
+  });
+
+  it("keeps the configured first run in the morning before adaptive tightening begins", () => {
+    const settings = createSettings(
+      {
+        adaptiveSchedulingEnabled: true,
+        startTimeSeconds: 8 * 60 * 60,
+        intervalSeconds: 2 * 60 * 60,
+        minimumIntervalSeconds: 30 * 60,
+        maxOccurrencesPerDay: 4,
+      },
+      {
+        workingHoursEnabled: false,
+      },
+    );
+
+    const state = createAdaptiveDefinitionState(
+      settings.breakDefinitions[0],
+      settings,
+      new Date(2026, 2, 19, 7, 30).getTime(),
+      0,
+      0,
+    );
+
+    expect(state.occurrencesMs[0]).toBe(new Date(2026, 2, 19, 8, 0).getTime());
+    expect(state.adaptiveStatus).toBe("fixed");
+  });
+
+  it("keeps the configured interval throughout the two-hour gentle start window", () => {
+    const settings = createSettings({
+      adaptiveSchedulingEnabled: true,
+      startTimeSeconds: 8 * 60 * 60,
+      intervalSeconds: 2 * 60 * 60,
+      minimumIntervalSeconds: 30 * 60,
+      postponeLengthSeconds: 15 * 60,
+      minimumPostponeSeconds: 5 * 60,
+      maxOccurrencesPerDay: 4,
+      breakLengthSeconds: 10 * 60,
+    });
+
+    const state = createAdaptiveDefinitionState(
+      settings.breakDefinitions[0],
+      settings,
+      new Date(2026, 2, 19, 9, 30).getTime(),
+      1,
+      0,
+    );
+
+    expect(state.adaptiveIntervalSeconds).toBe(2 * 60 * 60);
+    expect(state.adaptivePostponeSeconds).toBe(15 * 60);
+    expect(state.occurrencesMs[0]).toBe(
+      new Date(2026, 2, 19, 11, 30).getTime(),
+    );
+    expect(state.adaptiveStatus).toBe("fixed");
+  });
+
+  it("tightens the interval after delays but never below the configured minimum", () => {
+    const settings = createSettings({
+      adaptiveSchedulingEnabled: true,
+      startTimeSeconds: 8 * 60 * 60,
+      intervalSeconds: 2 * 60 * 60,
+      minimumIntervalSeconds: 30 * 60,
+      postponeLengthSeconds: 15 * 60,
+      minimumPostponeSeconds: 5 * 60,
+      maxOccurrencesPerDay: 4,
+      breakLengthSeconds: 10 * 60,
+    });
+
+    const state = createAdaptiveDefinitionState(
+      settings.breakDefinitions[0],
+      settings,
+      new Date(2026, 2, 19, 15, 30).getTime(),
+      1,
+      1,
+    );
+
+    expect(state.adaptiveIntervalSeconds).toBe(65 * 60);
+    expect(state.adaptivePostponeSeconds).toBe(15 * 60);
+    expect(state.occurrencesMs[0]).toBe(
+      new Date(2026, 2, 19, 16, 35).getTime(),
+    );
+    expect(state.adaptiveStatus).toBe("adaptive");
+  });
+
+  it("shrinks adaptive snooze time on tight days but not below the minimum", () => {
+    const settings = createSettings({
+      adaptiveSchedulingEnabled: true,
+      startTimeSeconds: 8 * 60 * 60,
+      intervalSeconds: 2 * 60 * 60,
+      minimumIntervalSeconds: 30 * 60,
+      postponeLengthSeconds: 60 * 60,
+      minimumPostponeSeconds: 10 * 60,
+      maxOccurrencesPerDay: 3,
+      breakLengthSeconds: 10 * 60,
+    });
+
+    const state = createAdaptiveDefinitionState(
+      settings.breakDefinitions[0],
+      settings,
+      new Date(2026, 2, 19, 16, 30).getTime(),
+      0,
+      1,
+    );
+
+    expect(state.adaptiveIntervalSeconds).toBe(35 * 60);
+    expect(state.adaptivePostponeSeconds).toBe(35 * 60);
+    expect(state.adaptiveStatus).toBe("adaptive");
+  });
+
+  it("falls back to fixed scheduling when no daily limit is configured", () => {
+    const settings = createSettings({
+      adaptiveSchedulingEnabled: true,
+      maxOccurrencesPerDay: null,
+      startTimeSeconds: 8 * 60 * 60,
+      intervalSeconds: 2 * 60 * 60,
+    });
+
+    const state = createAdaptiveDefinitionState(
+      settings.breakDefinitions[0],
+      settings,
+      new Date(2026, 2, 19, 9, 0).getTime(),
+      0,
+      0,
+    );
+
+    expect(state.adaptiveStatus).toBe("fixed");
+    expect(state.adaptiveIntervalSeconds).toBeNull();
+  });
+
+  it("schedules only within the remaining working-hour ranges of the day", () => {
+    const settings = createSettings(
+      {
+        adaptiveSchedulingEnabled: true,
+        startTimeSeconds: 8 * 60 * 60,
+        intervalSeconds: 2 * 60 * 60,
+        minimumIntervalSeconds: 30 * 60,
+        postponeLengthSeconds: 15 * 60,
+        minimumPostponeSeconds: 5 * 60,
+        maxOccurrencesPerDay: 3,
+        breakLengthSeconds: 10 * 60,
+      },
+      {
+        workingHoursEnabled: true,
+        workingHoursWednesday: {
+          enabled: true,
+          ranges: [
+            { fromMinutes: 9 * 60, toMinutes: 12 * 60 },
+            { fromMinutes: 13 * 60, toMinutes: 18 * 60 },
+          ],
+        },
+      },
+    );
+
+    const state = createAdaptiveDefinitionState(
+      settings.breakDefinitions[0],
+      settings,
+      new Date(2026, 2, 18, 11, 30).getTime(),
+      0,
+      0,
+    );
+
+    expect(state.occurrencesMs[0]).toBe(
+      new Date(2026, 2, 18, 14, 10).getTime(),
+    );
+    expect(state.occurrencesMs[1]).toBe(new Date(2026, 2, 18, 16, 0).getTime());
+    expect(
+      getWorkingTimeRangesForDay(settings, new Date(2026, 2, 18).getTime()),
+    ).toHaveLength(2);
+  });
+
+  it("marks the day as unreachable and plans as tightly as allowed", () => {
+    const settings = createSettings({
+      adaptiveSchedulingEnabled: true,
+      startTimeSeconds: 8 * 60 * 60,
+      intervalSeconds: 2 * 60 * 60,
+      minimumIntervalSeconds: 30 * 60,
+      postponeLengthSeconds: 15 * 60,
+      minimumPostponeSeconds: 5 * 60,
+      maxOccurrencesPerDay: 3,
+      breakLengthSeconds: 10 * 60,
+    });
+
+    const state = createAdaptiveDefinitionState(
+      settings.breakDefinitions[0],
+      settings,
+      new Date(2026, 2, 19, 17, 20).getTime(),
+      0,
+      1,
+    );
+
+    expect(state.adaptiveStatus).toBe("unreachable");
+    expect(state.adaptiveIntervalSeconds).toBe(30 * 60);
+    expect(state.occurrencesMs[0]).toBe(
+      new Date(2026, 2, 19, 17, 50).getTime(),
     );
   });
 });

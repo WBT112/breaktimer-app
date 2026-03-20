@@ -35,4 +35,7 @@ export interface BreakDefinitionPreview {
   definitionId: string;
   nextRunAtMs: number | null;
   reason: string;
+  adaptiveStatus?: "fixed" | "adaptive" | "unreachable" | null;
+  adaptiveIntervalSeconds?: number | null;
+  adaptivePostponeSeconds?: number | null;
 }

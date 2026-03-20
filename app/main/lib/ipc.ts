@@ -14,6 +14,7 @@ import {
   getActiveBreakContext,
   getAllowPostpone,
   getBreakLengthSeconds,
+  getPendingRegularOccurrenceCountsForPreview,
   getQueuedOccurrencesForPreview,
   getTimeSinceLastBreak,
   postponeBreak,
@@ -63,6 +64,7 @@ ipcMain.handle(
       getBreakCompletionHistory(),
       Date.now(),
       getQueuedOccurrencesForPreview(),
+      getPendingRegularOccurrenceCountsForPreview(),
     );
   },
 );

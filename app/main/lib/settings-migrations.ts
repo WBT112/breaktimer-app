@@ -248,6 +248,52 @@ const migrations: Migration[] = [
       return settings;
     },
   },
+  {
+    version: 5,
+    migrate: (settings) => {
+      if (Array.isArray(settings.breakDefinitions)) {
+        settings.breakDefinitions = settings.breakDefinitions.map(
+          (breakDefinition) => ({
+            ...createDefaultBreakDefinition(
+              typeof breakDefinition.id === "string"
+                ? breakDefinition.id
+                : createBreakDefinitionId(),
+            ),
+            ...breakDefinition,
+          }),
+        );
+      }
+
+      return settings;
+    },
+  },
+  {
+    version: 6,
+    migrate: (settings) => {
+      if (Array.isArray(settings.breakDefinitions)) {
+        settings.breakDefinitions = settings.breakDefinitions.map(
+          (breakDefinition) => ({
+            ...createDefaultBreakDefinition(
+              typeof breakDefinition.id === "string"
+                ? breakDefinition.id
+                : createBreakDefinitionId(),
+            ),
+            ...breakDefinition,
+          }),
+        );
+      }
+
+      if (!Array.isArray(settings.customBreakCategories)) {
+        settings.customBreakCategories = [];
+      }
+
+      if (!Array.isArray(settings.breakCategoryGoals)) {
+        settings.breakCategoryGoals = [];
+      }
+
+      return settings;
+    },
+  },
 ];
 
 export function migrateSettingsObject(

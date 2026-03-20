@@ -3,17 +3,43 @@ export enum NotificationType {
   Popup = "POPUP",
 }
 
+export interface BreakCategoryDefinition {
+  id: string;
+  label: string;
+}
+
+export interface BreakCategoryGoal {
+  categoryId: string;
+  dailyDurationGoalSeconds: number | null;
+  weeklyDurationGoalSeconds: number | null;
+}
+
+export const DEFAULT_BREAK_CATEGORY_ID = "general";
+
+export const builtInBreakCategories: BreakCategoryDefinition[] = [
+  { id: DEFAULT_BREAK_CATEGORY_ID, label: "Allgemein" },
+  { id: "standing", label: "Stehen" },
+  { id: "mobility", label: "Mobility" },
+  { id: "eyes", label: "Augen" },
+  { id: "breathing", label: "Atmung" },
+  { id: "hydration", label: "Trinken" },
+];
+
 export interface BreakDefinition {
   id: string;
   enabled: boolean;
+  categoryId: string;
   notificationType: NotificationType;
+  adaptiveSchedulingEnabled: boolean;
   startTimeSeconds: number;
   intervalSeconds: number;
+  minimumIntervalSeconds: number;
   maxOccurrencesPerDay: number | null;
   breakTitle: string;
   breakMessage: string;
   breakLengthSeconds: number;
   postponeLengthSeconds: number;
+  minimumPostponeSeconds: number;
   postponeLimit: number;
   soundType: SoundType;
   breakSoundVolume: number;
@@ -51,6 +77,8 @@ export interface Settings {
   trayTextEnabled: boolean;
   trayTextMode: TrayTextMode;
   breakDefinitions: BreakDefinition[];
+  customBreakCategories: BreakCategoryDefinition[];
+  breakCategoryGoals: BreakCategoryGoal[];
   workingHoursEnabled: boolean;
   workingHoursMonday: WorkingHours;
   workingHoursTuesday: WorkingHours;
@@ -87,6 +115,42 @@ export function createBreakDefinitionId(): string {
   return `break-${Math.random().toString(36).slice(2, 10)}`;
 }
 
+export function createBreakCategoryId(): string {
+  return `category-${Math.random().toString(36).slice(2, 10)}`;
+}
+
+export function getBreakCategories(
+  settings: Pick<Settings, "customBreakCategories">,
+): BreakCategoryDefinition[] {
+  return [...builtInBreakCategories, ...settings.customBreakCategories];
+}
+
+export function getBreakCategoryLabel(
+  settings: Pick<Settings, "customBreakCategories">,
+  categoryId: string,
+): string {
+  const category = getBreakCategories(settings).find(
+    (entry) => entry.id === categoryId,
+  );
+
+  return category?.label ?? builtInBreakCategories[0].label;
+}
+
+export function getBreakCategoryGoal(
+  settings: Pick<Settings, "breakCategoryGoals">,
+  categoryId: string,
+): BreakCategoryGoal {
+  return (
+    settings.breakCategoryGoals.find(
+      (goal) => goal.categoryId === categoryId,
+    ) ?? {
+      categoryId,
+      dailyDurationGoalSeconds: null,
+      weeklyDurationGoalSeconds: null,
+    }
+  );
+}
+
 export function createDefaultBreakDefinition(
   id = createBreakDefinitionId(),
   overrides: Partial<BreakDefinition> = {},
@@ -94,15 +158,19 @@ export function createDefaultBreakDefinition(
   return {
     id,
     enabled: true,
+    categoryId: DEFAULT_BREAK_CATEGORY_ID,
     notificationType: NotificationType.Popup,
+    adaptiveSchedulingEnabled: false,
     startTimeSeconds: 8 * 60 * 60,
     intervalSeconds: 2 * 60 * 60,
+    minimumIntervalSeconds: 30 * 60,
     maxOccurrencesPerDay: 4,
     breakTitle: "Zeit für eine Pause.",
     breakMessage:
       "Entspanne deine Augen.\nStreck deine Beine.\nAtme tief durch.",
     breakLengthSeconds: 2 * 60,
     postponeLengthSeconds: 3 * 60,
+    minimumPostponeSeconds: 5 * 60,
     postponeLimit: 0,
     soundType: SoundType.Gong,
     breakSoundVolume: 1,
@@ -113,16 +181,54 @@ export function createDefaultBreakDefinition(
 }
 
 export function normalizeSettings(settings: Settings): Settings {
-  if (settings.breaksEnabled) {
-    return settings;
-  }
+  const normalizedCustomBreakCategories = settings.customBreakCategories
+    .map((category) => ({
+      id: category.id,
+      label: category.label.trim() || "Eigene Kategorie",
+    }))
+    .filter(
+      (category, index, categories) =>
+        category.id &&
+        categories.findIndex((entry) => entry.id === category.id) === index,
+    );
+  const validCategoryIds = new Set(
+    getBreakCategories({
+      customBreakCategories: normalizedCustomBreakCategories,
+    }).map((category) => category.id),
+  );
+  const normalizedBreakCategoryGoals = settings.breakCategoryGoals
+    .filter(
+      (goal, index, goals) =>
+        validCategoryIds.has(goal.categoryId) &&
+        goals.findIndex((entry) => entry.categoryId === goal.categoryId) ===
+          index,
+    )
+    .map((goal) => ({
+      categoryId: goal.categoryId,
+      dailyDurationGoalSeconds:
+        typeof goal.dailyDurationGoalSeconds === "number"
+          ? goal.dailyDurationGoalSeconds
+          : null,
+      weeklyDurationGoalSeconds:
+        typeof goal.weeklyDurationGoalSeconds === "number"
+          ? goal.weeklyDurationGoalSeconds
+          : null,
+    }));
+  const normalizedBreakDefinitions = settings.breakDefinitions.map(
+    (breakDefinition) => ({
+      ...breakDefinition,
+      categoryId: validCategoryIds.has(breakDefinition.categoryId)
+        ? breakDefinition.categoryId
+        : DEFAULT_BREAK_CATEGORY_ID,
+      enabled: settings.breaksEnabled ? breakDefinition.enabled : false,
+    }),
+  );
 
   return {
     ...settings,
-    breakDefinitions: settings.breakDefinitions.map((breakDefinition) => ({
-      ...breakDefinition,
-      enabled: false,
-    })),
+    customBreakCategories: normalizedCustomBreakCategories,
+    breakCategoryGoals: normalizedBreakCategoryGoals,
+    breakDefinitions: normalizedBreakDefinitions,
   };
 }
 
@@ -132,6 +238,8 @@ export const defaultSettings: Settings = {
   trayTextEnabled: true,
   trayTextMode: TrayTextMode.TimeToNextBreak,
   breakDefinitions: [createDefaultBreakDefinition("default-break-1")],
+  customBreakCategories: [],
+  breakCategoryGoals: [],
   workingHoursEnabled: true,
   workingHoursMonday: {
     enabled: true,

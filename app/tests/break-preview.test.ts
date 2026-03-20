@@ -134,4 +134,63 @@ describe("break preview", () => {
       "Nächster Snooze-Termin ist heute um 09:45.",
     );
   });
+
+  it("explains adaptive tightening and the current adaptive spacing", () => {
+    const { settings, history } = createSettings({
+      breakDefinitions: [
+        createDefaultBreakDefinition("break-1", {
+          adaptiveSchedulingEnabled: true,
+          startTimeSeconds: 8 * 60 * 60,
+          intervalSeconds: 2 * 60 * 60,
+          minimumIntervalSeconds: 30 * 60,
+          postponeLengthSeconds: 15 * 60,
+          minimumPostponeSeconds: 5 * 60,
+          maxOccurrencesPerDay: 4,
+          breakLengthSeconds: 10 * 60,
+        }),
+      ],
+    });
+
+    const previews = getBreakDefinitionPreviews(
+      settings,
+      history,
+      new Date(2026, 2, 20, 15, 30).getTime(),
+      {},
+      { "break-1": 1 },
+    );
+
+    expect(previews[0].adaptiveStatus).toBe("adaptive");
+    expect(previews[0].adaptiveIntervalSeconds).toBe(40 * 60);
+    expect(previews[0].reason).toContain(
+      "Adaptiv verdichtet wegen Tagesziel. Aktueller Abstand: 40 Minuten.",
+    );
+  });
+
+  it("explains the gentle start before morning tightening begins", () => {
+    const { settings, history } = createSettings({
+      breakDefinitions: [
+        createDefaultBreakDefinition("break-1", {
+          adaptiveSchedulingEnabled: true,
+          startTimeSeconds: 8 * 60 * 60,
+          intervalSeconds: 2 * 60 * 60,
+          minimumIntervalSeconds: 30 * 60,
+          postponeLengthSeconds: 15 * 60,
+          minimumPostponeSeconds: 5 * 60,
+          maxOccurrencesPerDay: 4,
+          breakLengthSeconds: 10 * 60,
+        }),
+      ],
+    });
+
+    const previews = getBreakDefinitionPreviews(
+      settings,
+      history,
+      new Date(2026, 2, 20, 9, 30).getTime(),
+    );
+
+    expect(previews[0].adaptiveStatus).toBe("fixed");
+    expect(previews[0].reason).toContain(
+      "Schonender Start aktiv: In den ersten 2 Stunden bleibt das Standardintervall erhalten.",
+    );
+  });
 });

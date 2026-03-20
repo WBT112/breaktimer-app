@@ -14,6 +14,7 @@ import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { Trash2 } from "lucide-react";
 import {
+  BreakCategoryDefinition,
   BreakDefinition,
   NotificationType,
   SoundType,
@@ -24,6 +25,7 @@ import TimeInput from "./time-input";
 interface BreakDefinitionCardProps {
   breakDefinition: BreakDefinition;
   breaksEnabled: boolean;
+  categories: BreakCategoryDefinition[];
   index: number;
   preview: BreakDefinitionPreview | null;
   onChange: (breakDefinition: BreakDefinition) => void;
@@ -41,12 +43,16 @@ function getBreakLabel(
 export default function BreakDefinitionCard({
   breakDefinition,
   breaksEnabled,
+  categories,
   index,
   preview,
   onChange,
   onDelete,
 }: BreakDefinitionCardProps) {
   const disabled = !breaksEnabled || !breakDefinition.enabled;
+  const adaptiveAvailable = breakDefinition.maxOccurrencesPerDay !== null;
+  const adaptiveEnabled =
+    breakDefinition.adaptiveSchedulingEnabled && adaptiveAvailable;
 
   const updateBreakDefinition = (updates: Partial<BreakDefinition>): void => {
     onChange({
@@ -129,7 +135,7 @@ export default function BreakDefinitionCard({
         </div>
       </div>
 
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-4 gap-4">
         <div className="space-y-2">
           <Label className="text-sm font-medium">Typ</Label>
           <Select
@@ -151,6 +157,27 @@ export default function BreakDefinitionCard({
               <SelectItem value={NotificationType.Notification}>
                 Einfache Benachrichtigung
               </SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-2">
+          <Label className="text-sm font-medium">Kategorie</Label>
+          <Select
+            value={breakDefinition.categoryId}
+            onValueChange={(categoryId) =>
+              updateBreakDefinition({ categoryId })
+            }
+            disabled={disabled}
+          >
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {categories.map((category) => (
+                <SelectItem key={category.id} value={category.id}>
+                  {category.label}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </div>
@@ -258,6 +285,62 @@ export default function BreakDefinitionCard({
             volume={breakDefinition.breakSoundVolume}
             disabled={disabled}
           />
+        </div>
+      </div>
+
+      <div className="rounded-lg border border-border/70 bg-muted/30 p-4 space-y-4">
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <h5 className="text-sm font-semibold">Adaptives Scheduling</h5>
+            <p className="text-sm text-muted-foreground">
+              Verdichtet die verbleibenden Pausen automatisch, wenn das
+              Tagesziel sonst knapp wird.
+            </p>
+            <p className="text-xs text-muted-foreground mt-1">
+              Schonender Start: In den ersten 2 Stunden bleibt morgens das
+              normale Intervall erhalten.
+            </p>
+          </div>
+          <Switch
+            checked={breakDefinition.adaptiveSchedulingEnabled}
+            onCheckedChange={(checked) =>
+              updateBreakDefinition({ adaptiveSchedulingEnabled: checked })
+            }
+            disabled={disabled || !adaptiveAvailable}
+          />
+        </div>
+
+        {!adaptiveAvailable && (
+          <p className="text-xs text-muted-foreground">
+            Adaptives Scheduling ist nur mit gesetztem Tageslimit verfügbar.
+          </p>
+        )}
+
+        <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label className="text-sm font-medium">Mindestabstand</Label>
+            <TimeInput
+              value={breakDefinition.minimumIntervalSeconds}
+              onChange={(minimumIntervalSeconds) =>
+                updateBreakDefinition({ minimumIntervalSeconds })
+              }
+              precision="seconds"
+              disabled={disabled || !adaptiveEnabled}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label className="text-sm font-medium">
+              Minimale Verschiebezeit
+            </Label>
+            <TimeInput
+              value={breakDefinition.minimumPostponeSeconds}
+              onChange={(minimumPostponeSeconds) =>
+                updateBreakDefinition({ minimumPostponeSeconds })
+              }
+              precision="seconds"
+              disabled={disabled || !adaptiveEnabled}
+            />
+          </div>
         </div>
       </div>
 

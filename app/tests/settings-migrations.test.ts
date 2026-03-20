@@ -62,23 +62,29 @@ describe("settings migrations", () => {
 
     const migrated = migrateSettingsObject(legacySettings, 2);
 
-    expect(migrated.version).toBe(4);
+    expect(migrated.version).toBe(6);
     expect(migrated.settings.breakDefinitions).toHaveLength(1);
     expect(migrated.settings.breakDefinitions[0]).toMatchObject({
+      categoryId: "general",
+      adaptiveSchedulingEnabled: false,
       notificationType: NotificationType.Popup,
       startTimeSeconds: 9 * 60 * 60,
       intervalSeconds: 45 * 60,
+      minimumIntervalSeconds: 30 * 60,
       maxOccurrencesPerDay: null,
       breakTitle: "Legacy title",
       breakMessage: "Legacy message",
       breakLengthSeconds: 5 * 60,
       postponeLengthSeconds: 10 * 60,
+      minimumPostponeSeconds: 5 * 60,
       postponeLimit: 2,
       soundType: SoundType.Scifi,
       breakSoundVolume: 0.4,
       backgroundColor: "#111111",
       textColor: "#ffffff",
     });
+    expect(migrated.settings.customBreakCategories).toEqual([]);
+    expect(migrated.settings.breakCategoryGoals).toEqual([]);
     expect("notificationType" in migrated.settings).toBe(false);
     expect("breakFrequencySeconds" in migrated.settings).toBe(false);
     expect("breakTitle" in migrated.settings).toBe(false);

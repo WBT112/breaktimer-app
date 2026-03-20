@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
+  DEFAULT_BREAK_CATEGORY_ID,
   createDefaultBreakDefinition,
   defaultSettings,
+  getBreakCategoryLabel,
   normalizeSettings,
 } from "../types/settings";
 
@@ -63,5 +65,38 @@ describe("settings helpers", () => {
   it("keeps automatic start after countdown enabled and manual end disabled by default", () => {
     expect(defaultSettings.autoStartBreaksAfterCountdown).toBe(true);
     expect(defaultSettings.manualBreakEndRequired).toBe(false);
+  });
+
+  it("creates new break definitions with adaptive scheduling disabled and healthy minimums", () => {
+    const breakDefinition = createDefaultBreakDefinition("break-4");
+
+    expect(breakDefinition.adaptiveSchedulingEnabled).toBe(false);
+    expect(breakDefinition.minimumIntervalSeconds).toBe(30 * 60);
+    expect(breakDefinition.minimumPostponeSeconds).toBe(5 * 60);
+  });
+
+  it("assigns the general category to new break definitions by default", () => {
+    const breakDefinition = createDefaultBreakDefinition("break-5");
+
+    expect(breakDefinition.categoryId).toBe(DEFAULT_BREAK_CATEGORY_ID);
+    expect(
+      getBreakCategoryLabel(defaultSettings, breakDefinition.categoryId),
+    ).toBe("Allgemein");
+  });
+
+  it("falls back to the general category when a deleted custom category is still referenced", () => {
+    const normalizedSettings = normalizeSettings({
+      ...defaultSettings,
+      breakDefinitions: [
+        {
+          ...createDefaultBreakDefinition("break-6"),
+          categoryId: "missing-category",
+        },
+      ],
+    });
+
+    expect(normalizedSettings.breakDefinitions[0].categoryId).toBe(
+      DEFAULT_BREAK_CATEGORY_ID,
+    );
   });
 });

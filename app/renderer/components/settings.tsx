@@ -15,6 +15,7 @@ import { toast } from "../toaster";
 import AdvancedCard from "./settings/advanced-card";
 import BackdropCard from "./settings/backdrop-card";
 import BreaksCard from "./settings/breaks-card";
+import CategoryGoalsCard from "./settings/category-goals-card";
 import SettingsCard from "./settings/settings-card";
 import SettingsHeader from "./settings/settings-header";
 import SkipCard from "./settings/skip-card";
@@ -168,6 +169,24 @@ export default function SettingsEl() {
     });
   };
 
+  const handleCustomBreakCategoriesChange = (
+    customBreakCategories: Settings["customBreakCategories"],
+  ): void => {
+    setSettingsDraft({
+      ...settingsDraft,
+      customBreakCategories,
+    });
+  };
+
+  const handleBreakCategoryGoalsChange = (
+    breakCategoryGoals: Settings["breakCategoryGoals"],
+  ): void => {
+    setSettingsDraft({
+      ...settingsDraft,
+      breakCategoryGoals,
+    });
+  };
+
   const handleSave = async () => {
     await ipcRenderer.invokeSetSettings(settingsDraft);
     toast("Einstellungen gespeichert");
@@ -227,6 +246,11 @@ export default function SettingsEl() {
           </TabsContent>
 
           <TabsContent value="statistics" className="m-0 space-y-6">
+            <CategoryGoalsCard
+              settingsDraft={settingsDraft}
+              onCustomBreakCategoriesChange={handleCustomBreakCategoriesChange}
+              onBreakCategoryGoalsChange={handleBreakCategoryGoalsChange}
+            />
             <StatisticsCard
               snapshot={statisticsSnapshot}
               selectedRange={statisticsRange}

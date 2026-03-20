@@ -18,6 +18,9 @@ const populatedSnapshot: BreakStatisticsSnapshot = {
     skippedCount: 1,
     dueCount: 10,
     idleResetCount: 1,
+    categoryDailyGoalsMetDays: 3,
+    categoryWeeklyGoalsMet: 1,
+    trackedDurationSeconds: 60 * 60,
   },
   days: [
     {
@@ -36,6 +39,8 @@ const populatedSnapshot: BreakStatisticsSnapshot = {
     {
       definitionId: "break-1",
       label: "Augenpause",
+      categoryId: "eyes",
+      categoryLabel: "Augen",
       backgroundColor: "#0f766e",
       textColor: "#ffffff",
       completedCount: 12,
@@ -44,6 +49,20 @@ const populatedSnapshot: BreakStatisticsSnapshot = {
       dueCount: 10,
       fulfilledDueCount: 8,
       goalMetDays: 4,
+      lastCompletedAtMs: new Date(2026, 2, 20, 10, 30).getTime(),
+    },
+  ],
+  categorySummaries: [
+    {
+      categoryId: "eyes",
+      label: "Augen",
+      completedCount: 12,
+      trackedDurationSeconds: 60 * 60,
+      dailyGoalSeconds: 15 * 60,
+      weeklyGoalSeconds: 60 * 60,
+      dailyGoalMetDays: 3,
+      weeklyTrackedDurationSeconds: 60 * 60,
+      weeklyGoalMet: true,
       lastCompletedAtMs: new Date(2026, 2, 20, 10, 30).getTime(),
     },
   ],
@@ -69,6 +88,7 @@ describe("statistics card", () => {
           hasData: false,
           trackingStartedAtMs: null,
           definitionSummaries: [],
+          categorySummaries: [],
           badges: [],
           insights: [],
         },
@@ -94,6 +114,7 @@ describe("statistics card", () => {
 
     expect(html).toContain("Genommene Pausen");
     expect(html).toContain("Augenpause");
+    expect(html).toContain("Kategorien im Vergleich");
     expect(html).toContain("3 Tage Tagesziel erfüllt");
     expect(html).toContain("Erfüllungsquote");
   });

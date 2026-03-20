@@ -12,8 +12,12 @@ import {
 } from "../../types/settings";
 import {
   buildDailyOccurrences,
+  createAdaptiveDefinitionState,
   findNextOccurrenceAfter,
   getDayStartMs,
+  GENTLE_START_DURATION_SECONDS,
+  isGentleStartActiveAt,
+  isAdaptiveSchedulingActive,
 } from "./break-schedule";
 import {
   getCompletedCountForDay,
@@ -142,6 +146,11 @@ function getReasonForScheduledPreview(
   nowMs: number,
   nextRunAtMs: number,
   queuedOccurrence: ScheduledBreakOccurrence | null,
+  adaptiveDetails: {
+    adaptiveStatus: "fixed" | "adaptive" | "unreachable";
+    adaptiveIntervalSeconds: number | null;
+    adaptivePostponeSeconds: number | null;
+  } | null,
 ): string {
   const todayStartMs = getDayStartMs(nowMs);
   const nextRunDayStartMs = getDayStartMs(nextRunAtMs);
@@ -166,11 +175,23 @@ function getReasonForScheduledPreview(
   const firstTodayOccurrence = todayOccurrences[0] ?? null;
   const startTimeLabel = formatTime(definition.startTimeSeconds);
   const intervalLabel = formatDelay(definition.intervalSeconds);
+  const adaptiveIntervalLabel =
+    adaptiveDetails?.adaptiveIntervalSeconds !== null &&
+    adaptiveDetails?.adaptiveIntervalSeconds !== undefined
+      ? formatDelay(adaptiveDetails.adaptiveIntervalSeconds)
+      : null;
+  const adaptivePostponeLabel =
+    adaptiveDetails?.adaptivePostponeSeconds !== null &&
+    adaptiveDetails?.adaptivePostponeSeconds !== undefined
+      ? formatDelay(adaptiveDetails.adaptivePostponeSeconds)
+      : null;
+  const gentleStartLabel = formatDelay(GENTLE_START_DURATION_SECONDS);
   const nextRunLabel = formatDateTime(nextRunAtMs, nowMs);
   const latestCompletedLabel =
     latestCompletedAtMs !== null
       ? formatDateTime(latestCompletedAtMs, nowMs)
       : null;
+  const gentleStartActive = isGentleStartActiveAt(definition, settings, nowMs);
 
   if (
     queuedOccurrence?.source === "snoozed" &&
@@ -181,14 +202,23 @@ function getReasonForScheduledPreview(
         ? `Letzter abgeschlossener Lauf war ${latestCompletedLabel}.`
         : null,
       `Diese Pause wurde ${queuedOccurrence.postponeCount}x verschoben.`,
-      `Eingestellte Verzögerung: ${formatDelay(definition.postponeLengthSeconds)} pro Verschiebung.`,
+      adaptiveDetails?.adaptiveStatus === "adaptive" ||
+        adaptiveDetails?.adaptiveStatus === "unreachable"
+        ? `Aktuelle adaptive Verzögerung: ${adaptivePostponeLabel}.`
+        : `Eingestellte Verzögerung: ${formatDelay(definition.postponeLengthSeconds)} pro Verschiebung.`,
       `Nächster Snooze-Termin ist ${formatDateTime(queuedOccurrence.dueAtMs, nowMs)}.`,
     );
   }
 
   if (nextRunAtMs <= nowMs + 1000) {
     return joinReasonLines(
-      `Startzeit ${startTimeLabel}, Intervall ${intervalLabel}.`,
+      adaptiveDetails?.adaptiveStatus === "adaptive" ||
+        adaptiveDetails?.adaptiveStatus === "unreachable"
+        ? `Adaptiv geplant mit aktuellem Abstand ${adaptiveIntervalLabel}.`
+        : `Startzeit ${startTimeLabel}, Intervall ${intervalLabel}.`,
+      adaptiveDetails?.adaptiveStatus === "unreachable"
+        ? "Tagesziel unter den aktuellen Mindestabständen nicht mehr vollständig erreichbar."
+        : null,
       "Diese Pause ist jetzt fällig.",
     );
   }
@@ -225,7 +255,13 @@ function getReasonForScheduledPreview(
     }
 
     return joinReasonLines(
-      `Startzeit ${startTimeLabel}, Intervall ${intervalLabel}.`,
+      adaptiveDetails?.adaptiveStatus === "adaptive" ||
+        adaptiveDetails?.adaptiveStatus === "unreachable"
+        ? `Adaptiv verdichtet auf aktuell ${adaptiveIntervalLabel}.`
+        : `Startzeit ${startTimeLabel}, Intervall ${intervalLabel}.`,
+      adaptiveDetails?.adaptiveStatus === "unreachable"
+        ? "Tagesziel unter den aktuellen Mindestabständen nicht mehr vollständig erreichbar."
+        : null,
       `Nächster passender Termin ist ${nextRunLabel}.`,
     );
   }
@@ -233,6 +269,9 @@ function getReasonForScheduledPreview(
   if (firstTodayOccurrence !== null && nextRunAtMs === firstTodayOccurrence) {
     return joinReasonLines(
       `Beginn ist ${startTimeLabel}.`,
+      gentleStartActive
+        ? `Schonender Start aktiv: In den ersten ${gentleStartLabel} bleibt das Standardintervall erhalten.`
+        : null,
       `Erster Lauf heute ist ${nextRunLabel}.`,
     );
   }
@@ -252,7 +291,20 @@ function getReasonForScheduledPreview(
     latestCompletedLabel
       ? `Letzter abgeschlossener Lauf war ${latestCompletedLabel}.`
       : null,
-    `Startzeit ${startTimeLabel}, Intervall ${intervalLabel}.`,
+    gentleStartActive
+      ? `Schonender Start aktiv: In den ersten ${gentleStartLabel} bleibt das Standardintervall erhalten.`
+      : null,
+    adaptiveDetails?.adaptiveStatus === "adaptive" ||
+      adaptiveDetails?.adaptiveStatus === "unreachable"
+      ? `Adaptiv verdichtet wegen Tagesziel. Aktueller Abstand: ${adaptiveIntervalLabel}.`
+      : `Startzeit ${startTimeLabel}, Intervall ${intervalLabel}.`,
+    adaptiveDetails?.adaptiveStatus === "adaptive" &&
+      adaptivePostponeLabel !== null
+      ? `Aktuelle adaptive Verschiebezeit: ${adaptivePostponeLabel}.`
+      : null,
+    adaptiveDetails?.adaptiveStatus === "unreachable"
+      ? "Tagesziel unter den aktuellen Mindestabständen nicht mehr vollständig erreichbar."
+      : null,
     `Nächster Lauf ist ${nextRunLabel}.`,
   );
 }
@@ -262,6 +314,7 @@ export function getBreakDefinitionPreviews(
   history: BreakCompletionHistory,
   nowMs = Date.now(),
   queuedOccurrencesByDefinition: Record<string, ScheduledBreakOccurrence> = {},
+  pendingRegularOccurrencesByDefinition: Record<string, number> = {},
 ): BreakDefinitionPreview[] {
   return settings.breakDefinitions.map((definition) => {
     if (!settings.breaksEnabled) {
@@ -280,25 +333,43 @@ export function getBreakDefinitionPreviews(
       };
     }
 
-    const nextRunAtMs = findNextOccurrenceAfter(
-      definition,
-      nowMs,
-      (dueAtMs) =>
-        hasRemainingDailyCapacity(
-          definition.maxOccurrencesPerDay,
-          getCompletedCountForDay(
-            history,
-            definition.id,
-            getDayStartMs(dueAtMs),
-          ),
-        ) && canOccurrenceRunInWorkingHoursAt(dueAtMs, settings),
-    );
+    const queuedOccurrence =
+      queuedOccurrencesByDefinition[definition.id] ?? null;
+    const adaptiveState = isAdaptiveSchedulingActive(definition)
+      ? createAdaptiveDefinitionState(
+          definition,
+          settings,
+          nowMs,
+          getCompletedCountForDay(history, definition.id, getDayStartMs(nowMs)),
+          pendingRegularOccurrencesByDefinition[definition.id] ?? 0,
+        )
+      : null;
+    const nextRunAtMs =
+      queuedOccurrence?.dueAtMs && queuedOccurrence.dueAtMs >= nowMs
+        ? queuedOccurrence.dueAtMs
+        : (adaptiveState?.occurrencesMs[0] ??
+          findNextOccurrenceAfter(
+            definition,
+            nowMs,
+            (dueAtMs) =>
+              hasRemainingDailyCapacity(
+                definition.maxOccurrencesPerDay,
+                getCompletedCountForDay(
+                  history,
+                  definition.id,
+                  getDayStartMs(dueAtMs),
+                ),
+              ) && canOccurrenceRunInWorkingHoursAt(dueAtMs, settings),
+          ));
 
     if (nextRunAtMs === null) {
       return {
         definitionId: definition.id,
         nextRunAtMs: null,
         reason: "Kein passender Termin in den nächsten 7 Tagen",
+        adaptiveStatus: adaptiveState?.adaptiveStatus ?? null,
+        adaptiveIntervalSeconds: adaptiveState?.adaptiveIntervalSeconds ?? null,
+        adaptivePostponeSeconds: adaptiveState?.adaptivePostponeSeconds ?? null,
       };
     }
 
@@ -311,8 +382,18 @@ export function getBreakDefinitionPreviews(
         history,
         nowMs,
         nextRunAtMs,
-        queuedOccurrencesByDefinition[definition.id] ?? null,
+        queuedOccurrence,
+        adaptiveState
+          ? {
+              adaptiveStatus: adaptiveState.adaptiveStatus,
+              adaptiveIntervalSeconds: adaptiveState.adaptiveIntervalSeconds,
+              adaptivePostponeSeconds: adaptiveState.adaptivePostponeSeconds,
+            }
+          : null,
       ),
+      adaptiveStatus: adaptiveState?.adaptiveStatus ?? null,
+      adaptiveIntervalSeconds: adaptiveState?.adaptiveIntervalSeconds ?? null,
+      adaptivePostponeSeconds: adaptiveState?.adaptivePostponeSeconds ?? null,
     };
   });
 }

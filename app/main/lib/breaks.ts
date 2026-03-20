@@ -14,17 +14,20 @@ import {
   NotificationType,
   Settings,
   SoundType,
+  getBreakCategoryLabel,
 } from "../../types/settings";
 import {
   advanceStateAfterQueuedOccurrence,
   BreakDefinitionState,
   advanceStatePastTime,
+  createAdaptiveDefinitionState,
   findNextOccurrenceAfter,
   consumeNextOccurrence,
   createDefinitionState,
   deferStateForIdle,
   getDayStartMs,
   getNextDueAtMs,
+  isAdaptiveSchedulingActive,
   sortOccurrencesByDueAt,
   shiftStateAfterIdle,
 } from "./break-schedule";
@@ -65,6 +68,62 @@ function getEnabledBreakDefinitions(settings: Settings): BreakDefinition[] {
   return settings.breakDefinitions.filter((definition) => definition.enabled);
 }
 
+function getBreakDefinitionById(
+  settings: Settings,
+  definitionId: string,
+): BreakDefinition | null {
+  return (
+    settings.breakDefinitions.find(
+      (definition) => definition.id === definitionId,
+    ) ?? null
+  );
+}
+
+function isRegularGoalOccurrence(
+  occurrence: ScheduledBreakOccurrence,
+): boolean {
+  return occurrence.source !== "manual";
+}
+
+function getBreakEventMetadata(
+  definition: BreakDefinition,
+  actualDurationSeconds: number | null = null,
+): {
+  categoryId: string;
+  categoryLabel: string;
+  actualDurationSeconds: number | null;
+} {
+  const settings = getSettings();
+
+  return {
+    categoryId: definition.categoryId,
+    categoryLabel: getBreakCategoryLabel(settings, definition.categoryId),
+    actualDurationSeconds,
+  };
+}
+
+function getBreakEventMetadataForOccurrence(
+  occurrence: ScheduledBreakOccurrence,
+  actualDurationSeconds: number | null = null,
+): {
+  categoryId: string;
+  categoryLabel: string;
+  actualDurationSeconds: number | null;
+} {
+  const definition = getBreakDefinitionById(
+    getSettings(),
+    occurrence.breakDefinitionId,
+  );
+
+  return definition
+    ? getBreakEventMetadata(definition, actualDurationSeconds)
+    : {
+        categoryId: "general",
+        categoryLabel: "Allgemein",
+        actualDurationSeconds,
+      };
+}
+
 function logBreakEvent(entry: BreakEventLogEntry): void {
   appendBreakEventLog(entry);
 }
@@ -75,16 +134,29 @@ function sortDueQueue(): void {
 
 function getDefinitionState(
   definition: BreakDefinition,
+  settings: Settings,
   nowMs: number,
 ): BreakDefinitionState {
   const existingState = breakStates.get(definition.id);
   const dayStartMs = getDayStartMs(nowMs);
 
-  if (existingState && existingState.dayStartMs === dayStartMs) {
+  if (
+    existingState &&
+    existingState.dayStartMs === dayStartMs &&
+    (!isAdaptiveSchedulingActive(definition) || existingState.idleDeferred)
+  ) {
     return existingState;
   }
 
-  const nextState = createDefinitionState(definition, nowMs);
+  const nextState = isAdaptiveSchedulingActive(definition)
+    ? createAdaptiveDefinitionState(
+        definition,
+        settings,
+        nowMs,
+        getCompletedBreakCount(definition.id, dayStartMs),
+        getPendingRegularOccurrenceCount(definition.id),
+      )
+    : createDefinitionState(definition, nowMs);
   breakStates.set(definition.id, nextState);
   return nextState;
 }
@@ -109,7 +181,7 @@ function syncDefinitionStates(settings: Settings, nowMs: number): void {
   );
 
   for (const definition of getEnabledBreakDefinitions(settings)) {
-    getDefinitionState(definition, nowMs);
+    getDefinitionState(definition, settings, nowMs);
   }
 }
 
@@ -193,6 +265,45 @@ function hasQueuedOccurrence(definitionId: string): boolean {
   );
 }
 
+function getPendingRegularOccurrenceCount(definitionId: string): number {
+  const queuedCount = dueQueue.filter(
+    (occurrence) =>
+      occurrence.breakDefinitionId === definitionId &&
+      isRegularGoalOccurrence(occurrence),
+  ).length;
+  const activeCount =
+    activeBreakContext &&
+    activeBreakContext.breakDefinition.id === definitionId &&
+    isRegularGoalOccurrence(activeBreakContext.occurrence)
+      ? 1
+      : 0;
+
+  return queuedCount + activeCount;
+}
+
+function getPendingRegularOccurrenceCounts(): Record<string, number> {
+  const counts: Record<string, number> = {};
+
+  for (const occurrence of dueQueue) {
+    if (!isRegularGoalOccurrence(occurrence)) {
+      continue;
+    }
+
+    counts[occurrence.breakDefinitionId] =
+      (counts[occurrence.breakDefinitionId] ?? 0) + 1;
+  }
+
+  if (
+    activeBreakContext &&
+    isRegularGoalOccurrence(activeBreakContext.occurrence)
+  ) {
+    counts[activeBreakContext.breakDefinition.id] =
+      (counts[activeBreakContext.breakDefinition.id] ?? 0) + 1;
+  }
+
+  return counts;
+}
+
 export function getBreakTime(): BreakTime {
   const nextOccurrence = getNextDisplayOccurrenceCandidate();
   return nextOccurrence ? moment(nextOccurrence.dueAtMs) : null;
@@ -220,6 +331,13 @@ export function getQueuedOccurrencesForPreview(): Record<
   }
 
   return queuedOccurrencesByDefinition;
+}
+
+export function getPendingRegularOccurrenceCountsForPreview(): Record<
+  string,
+  number
+> {
+  return getPendingRegularOccurrenceCounts();
 }
 
 export function getActiveBreakContext(): ActiveBreakContext | null {
@@ -252,13 +370,20 @@ export function resetTimeSinceLastBreak(context: string): void {
   buildTray();
 }
 
-function markBreakCompleted(context: string): void {
+function markBreakCompleted(
+  context: string,
+  actualDurationSeconds: number | null = null,
+): void {
   if (activeBreakContext) {
     logBreakEvent(
       createBreakEventLogEntry(
         activeBreakContext.occurrence,
         "completed",
         Date.now(),
+        getBreakEventMetadata(
+          activeBreakContext.breakDefinition,
+          actualDurationSeconds,
+        ),
       ),
     );
     setBreakCompletionHistory(
@@ -284,10 +409,15 @@ export function completeBreakTracking(breakDurationMs: number): void {
   const halfRequiredDuration = requiredDurationMs / 2;
 
   if (breakDurationMs >= halfRequiredDuration) {
+    const actualDurationSeconds = Math.max(
+      0,
+      Math.round(breakDurationMs / 1000),
+    );
     markBreakCompleted(
       `Break completed [definition=${activeBreakContext?.breakDefinition.id ?? "unknown"}] [duration=${Math.round(
         breakDurationMs / 1000,
       )}s] [required=${Math.round(requiredDurationMs / 1000)}s]`,
+      actualDurationSeconds,
     );
   } else {
     log.info(
@@ -328,6 +458,7 @@ function getNextOccurrenceCandidate(): ScheduledBreakOccurrence | null {
           definition.id,
           state.dayStartMs,
           state.nextIndex,
+          dueAtMs,
         ),
         breakDefinitionId: definition.id,
         dueAtMs,
@@ -357,30 +488,35 @@ function getNextDisplayOccurrenceCandidate(): ScheduledBreakOccurrence | null {
   let scheduledOccurrence: ScheduledBreakOccurrence | null = null;
 
   for (const definition of getEnabledBreakDefinitions(settings)) {
-    const dueAtMs = findNextOccurrenceAfter(
-      definition,
-      Date.now(),
-      (occurrenceTimeMs) =>
-        hasRemainingDailyCapacity(
-          definition,
-          getDayStartMs(occurrenceTimeMs),
-        ) &&
-        canOccurrenceRunInWorkingHours(
-          {
-            occurrenceId: createScheduledOccurrenceId(
-              definition.id,
-              getDayStartMs(occurrenceTimeMs),
-              null,
-            ),
-            breakDefinitionId: definition.id,
-            dueAtMs: occurrenceTimeMs,
-            sequenceIndex: null,
-            postponeCount: 0,
-            source: "scheduled",
-          },
-          settings,
-        ),
-    );
+    const currentState = getDefinitionState(definition, settings, Date.now());
+    const currentDayDueAtMs = getNextDueAtMs(currentState);
+    const dueAtMs =
+      currentDayDueAtMs ??
+      findNextOccurrenceAfter(
+        definition,
+        Date.now(),
+        (occurrenceTimeMs) =>
+          hasRemainingDailyCapacity(
+            definition,
+            getDayStartMs(occurrenceTimeMs),
+          ) &&
+          canOccurrenceRunInWorkingHours(
+            {
+              occurrenceId: createScheduledOccurrenceId(
+                definition.id,
+                getDayStartMs(occurrenceTimeMs),
+                null,
+                occurrenceTimeMs,
+              ),
+              breakDefinitionId: definition.id,
+              dueAtMs: occurrenceTimeMs,
+              sequenceIndex: null,
+              postponeCount: 0,
+              source: "scheduled",
+            },
+            settings,
+          ),
+      );
 
     if (dueAtMs === null) {
       continue;
@@ -392,6 +528,7 @@ function getNextDisplayOccurrenceCandidate(): ScheduledBreakOccurrence | null {
           definition.id,
           getDayStartMs(dueAtMs),
           null,
+          dueAtMs,
         ),
         breakDefinitionId: definition.id,
         dueAtMs,
@@ -510,7 +647,14 @@ function startBreakForOccurrence(occurrence: ScheduledBreakOccurrence): void {
     occurrence,
   };
   havingBreak = true;
-  logBreakEvent(createBreakEventLogEntry(occurrence, "started", Date.now()));
+  logBreakEvent(
+    createBreakEventLogEntry(
+      occurrence,
+      "started",
+      Date.now(),
+      getBreakEventMetadata(definition),
+    ),
+  );
 
   log.info(
     `Break started [definition=${definition.id}] [type=${definition.notificationType}] [source=${occurrence.source}]`,
@@ -571,7 +715,7 @@ function applyIdleResets(nowMs: number, settings: Settings): boolean {
   let didReset = false;
 
   for (const definition of getEnabledBreakDefinitions(settings)) {
-    const state = getDefinitionState(definition, nowMs);
+    const state = getDefinitionState(definition, settings, nowMs);
     const nextDueAtMs = getNextDueAtMs(state);
 
     if (
@@ -583,6 +727,7 @@ function applyIdleResets(nowMs: number, settings: Settings): boolean {
             definition.id,
             state.dayStartMs,
             state.nextIndex,
+            nextDueAtMs,
           ),
           breakDefinitionId: definition.id,
           dueAtMs: nextDueAtMs,
@@ -600,6 +745,7 @@ function applyIdleResets(nowMs: number, settings: Settings): boolean {
               definition.id,
               state.dayStartMs,
               state.nextIndex,
+              nextDueAtMs,
             ),
             breakDefinitionId: definition.id,
             dueAtMs: nextDueAtMs,
@@ -609,6 +755,7 @@ function applyIdleResets(nowMs: number, settings: Settings): boolean {
           },
           "idle_reset",
           nowMs,
+          getBreakEventMetadata(definition),
         ),
       );
       setDefinitionState(deferStateForIdle(state));
@@ -620,7 +767,17 @@ function applyIdleResets(nowMs: number, settings: Settings): boolean {
       continue;
     }
 
-    setDefinitionState(shiftStateAfterIdle(updatedState, definition, nowMs));
+    setDefinitionState(
+      isAdaptiveSchedulingActive(definition)
+        ? createAdaptiveDefinitionState(
+            definition,
+            settings,
+            nowMs,
+            getCompletedBreakCount(definition.id, updatedState.dayStartMs),
+            getPendingRegularOccurrenceCount(definition.id),
+          )
+        : shiftStateAfterIdle(updatedState, definition, nowMs),
+    );
     didReset = true;
   }
 
@@ -634,7 +791,7 @@ function enqueueDueScheduledOccurrences(
   const parallelBreaksEnabled = settings.parallelBreaksEnabled;
 
   for (const definition of getEnabledBreakDefinitions(settings)) {
-    let state = getDefinitionState(definition, nowMs);
+    let state = getDefinitionState(definition, settings, nowMs);
 
     if (!hasRemainingDailyCapacity(definition, state.dayStartMs)) {
       setDefinitionState(state);
@@ -646,7 +803,11 @@ function enqueueDueScheduledOccurrences(
         activeBreakContext?.breakDefinition.id === definition.id) ||
       (!parallelBreaksEnabled && hasQueuedOccurrence(definition.id))
     ) {
-      setDefinitionState(advanceStatePastTime(state, nowMs));
+      setDefinitionState(
+        isAdaptiveSchedulingActive(definition)
+          ? state
+          : advanceStatePastTime(state, nowMs),
+      );
       continue;
     }
 
@@ -662,6 +823,7 @@ function enqueueDueScheduledOccurrences(
           definition.id,
           state.dayStartMs,
           state.nextIndex,
+          dueAtMs,
         ),
         breakDefinitionId: definition.id,
         dueAtMs,
@@ -681,17 +843,30 @@ function enqueueDueScheduledOccurrences(
       }
 
       logBreakEvent(
-        createBreakEventLogEntry(occurrence, "due", occurrence.dueAtMs),
+        createBreakEventLogEntry(
+          occurrence,
+          "due",
+          occurrence.dueAtMs,
+          getBreakEventMetadata(definition),
+        ),
       );
       queueOccurrence({
         ...occurrence,
         dueAtMs: parallelBreaksEnabled ? dueAtMs : nowMs,
       });
-      state = advanceStateAfterQueuedOccurrence(
-        state,
-        nowMs,
-        parallelBreaksEnabled,
-      );
+      state = isAdaptiveSchedulingActive(definition)
+        ? createAdaptiveDefinitionState(
+            definition,
+            settings,
+            nowMs,
+            getCompletedBreakCount(definition.id, state.dayStartMs),
+            getPendingRegularOccurrenceCount(definition.id),
+          )
+        : advanceStateAfterQueuedOccurrence(
+            state,
+            nowMs,
+            parallelBreaksEnabled,
+          );
 
       if (!parallelBreaksEnabled) {
         break;
@@ -737,6 +912,15 @@ export function postponeBreak(action = "snoozed"): void {
 
   const activeDefinition = activeBreakContext.breakDefinition;
   const nextPostponeCount = activeBreakContext.occurrence.postponeCount + 1;
+  const postponeLengthSeconds =
+    activeDefinition.adaptiveSchedulingEnabled &&
+    activeDefinition.maxOccurrencesPerDay !== null
+      ? Math.max(
+          activeDefinition.minimumPostponeSeconds,
+          breakStates.get(activeDefinition.id)?.adaptivePostponeSeconds ??
+            activeDefinition.postponeLengthSeconds,
+        )
+      : activeDefinition.postponeLengthSeconds;
 
   havingBreak = false;
   currentBreakStartTime = null;
@@ -754,11 +938,12 @@ export function postponeBreak(action = "snoozed"): void {
         },
         "postponed",
         Date.now(),
+        getBreakEventMetadata(activeDefinition),
       ),
     );
     queueOccurrence({
       ...activeBreakContext.occurrence,
-      dueAtMs: Date.now() + activeDefinition.postponeLengthSeconds * 1000,
+      dueAtMs: Date.now() + postponeLengthSeconds * 1000,
       postponeCount: nextPostponeCount,
       source: "snoozed",
     });
@@ -768,6 +953,7 @@ export function postponeBreak(action = "snoozed"): void {
         activeBreakContext.occurrence,
         "skipped",
         Date.now(),
+        getBreakEventMetadata(activeDefinition),
       ),
     );
   }
@@ -814,7 +1000,12 @@ export function startBreakNow(): void {
     source: "manual",
   };
   logBreakEvent(
-    createBreakEventLogEntry(manualOccurrence, "manual_started", Date.now()),
+    createBreakEventLogEntry(
+      manualOccurrence,
+      "manual_started",
+      Date.now(),
+      getBreakEventMetadataForOccurrence(manualOccurrence),
+    ),
   );
   startBreakForOccurrence(manualOccurrence);
 }

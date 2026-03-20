@@ -15,11 +15,14 @@ export interface BreakEventLogEntry {
   id: string;
   occurrenceId: string;
   definitionId: string;
+  categoryId: string;
+  categoryLabel: string;
   timestampMs: number;
   type: BreakEventType;
   occurrenceSource: BreakOccurrenceSource;
   postponeCount: number;
   sequenceIndex: number | null;
+  actualDurationSeconds: number | null;
 }
 
 export interface BreakStatisticsKpis {
@@ -31,6 +34,9 @@ export interface BreakStatisticsKpis {
   skippedCount: number;
   dueCount: number;
   idleResetCount: number;
+  categoryDailyGoalsMetDays: number;
+  categoryWeeklyGoalsMet: number;
+  trackedDurationSeconds: number;
 }
 
 export interface BreakStatisticsDayPoint {
@@ -48,6 +54,8 @@ export interface BreakStatisticsDayPoint {
 export interface BreakStatisticsDefinitionSummary {
   definitionId: string;
   label: string;
+  categoryId: string;
+  categoryLabel: string;
   backgroundColor: string;
   textColor: string;
   completedCount: number;
@@ -56,6 +64,19 @@ export interface BreakStatisticsDefinitionSummary {
   dueCount: number;
   fulfilledDueCount: number;
   goalMetDays: number;
+  lastCompletedAtMs: number | null;
+}
+
+export interface BreakStatisticsCategorySummary {
+  categoryId: string;
+  label: string;
+  completedCount: number;
+  trackedDurationSeconds: number;
+  dailyGoalSeconds: number | null;
+  weeklyGoalSeconds: number | null;
+  dailyGoalMetDays: number;
+  weeklyTrackedDurationSeconds: number;
+  weeklyGoalMet: boolean;
   lastCompletedAtMs: number | null;
 }
 
@@ -73,6 +94,7 @@ export interface BreakStatisticsSnapshot {
   kpis: BreakStatisticsKpis;
   days: BreakStatisticsDayPoint[];
   definitionSummaries: BreakStatisticsDefinitionSummary[];
+  categorySummaries: BreakStatisticsCategorySummary[];
   badges: BreakStatisticsBadge[];
   insights: string[];
 }
