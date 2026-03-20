@@ -41,6 +41,16 @@ export default function AdvancedCard({
           />
           <Label>Vorzeitiges Beenden erlauben</Label>
         </div>
+
+        <div className="flex items-center space-x-2">
+          <Switch
+            checked={settingsDraft.parallelBreaksEnabled}
+            onCheckedChange={(checked) =>
+              onSwitchChange("parallelBreaksEnabled", checked)
+            }
+          />
+          <Label>Pausen parallel terminieren</Label>
+        </div>
       </div>
     </SettingsCard>
   );

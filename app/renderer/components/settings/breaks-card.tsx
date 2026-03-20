@@ -1,5 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
+import { BreakDefinitionPreview } from "../../../types/breaks";
 import {
   BreakDefinition,
   createDefaultBreakDefinition,
@@ -10,12 +11,14 @@ import SettingsCard from "./settings-card";
 
 interface BreaksCardProps {
   settingsDraft: Settings;
+  breakPreviews: BreakDefinitionPreview[];
   onSwitchChange: (field: string, checked: boolean) => void;
   onBreakDefinitionsChange: (breakDefinitions: BreakDefinition[]) => void;
 }
 
 export default function BreaksCard({
   settingsDraft,
+  breakPreviews,
   onSwitchChange,
   onBreakDefinitionsChange,
 }: BreaksCardProps) {
@@ -64,6 +67,11 @@ export default function BreaksCard({
             breakDefinition={breakDefinition}
             breaksEnabled={settingsDraft.breaksEnabled}
             index={index}
+            preview={
+              breakPreviews.find(
+                (preview) => preview.definitionId === breakDefinition.id,
+              ) ?? null
+            }
             onChange={(nextDefinition) =>
               handleBreakDefinitionChange(breakDefinition.id, nextDefinition)
             }

@@ -145,6 +145,16 @@ export function advanceStatePastTime(
   };
 }
 
+export function advanceStateAfterQueuedOccurrence(
+  state: BreakDefinitionState,
+  nowMs: number,
+  parallelBreaksEnabled: boolean,
+): BreakDefinitionState {
+  return parallelBreaksEnabled
+    ? consumeNextOccurrence(state)
+    : advanceStatePastTime(state, nowMs);
+}
+
 export function deferStateForIdle(
   state: BreakDefinitionState,
 ): BreakDefinitionState {

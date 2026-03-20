@@ -1,5 +1,6 @@
 import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { useEffect, useMemo, useState } from "react";
+import { BreakDefinitionPreview } from "../../types/breaks";
 import {
   BreakDefinition,
   normalizeSettings,
@@ -25,6 +26,9 @@ import WelcomeModal from "./welcome-modal";
 export default function SettingsEl() {
   const [settingsDraft, setSettingsDraft] = useState<Settings | null>(null);
   const [settings, setSettings] = useState<Settings | null>(null);
+  const [breakPreviews, setBreakPreviews] = useState<BreakDefinitionPreview[]>(
+    [],
+  );
   const [showWelcomeModal, setShowWelcomeModal] = useState(false);
 
   const loadSettings = async () => {
@@ -41,6 +45,28 @@ export default function SettingsEl() {
       await loadSettings();
     })();
   }, []);
+
+  useEffect(() => {
+    if (settingsDraft === null) {
+      return;
+    }
+
+    let cancelled = false;
+
+    (async () => {
+      const previews = (await ipcRenderer.invokeGetBreakDefinitionPreviews(
+        settingsDraft,
+      )) as BreakDefinitionPreview[];
+
+      if (!cancelled) {
+        setBreakPreviews(previews);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [settingsDraft]);
 
   const dirty = useMemo(() => {
     return JSON.stringify(settingsDraft) !== JSON.stringify(settings);
@@ -162,6 +188,7 @@ export default function SettingsEl() {
           <TabsContent value="break-settings" className="m-0 space-y-8">
             <BreaksCard
               settingsDraft={settingsDraft}
+              breakPreviews={breakPreviews}
               onSwitchChange={handleSwitchChange}
               onBreakDefinitionsChange={handleBreakDefinitionsChange}
             />

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { ScheduledBreakOccurrence } from "../types/breaks";
 import {
+  advanceStateAfterQueuedOccurrence,
   advanceStatePastInvalidOccurrences,
   buildDailyOccurrences,
   createDefinitionState,
@@ -178,5 +179,53 @@ describe("break schedule", () => {
     );
 
     expect(nextOccurrence).toBe(new Date(2026, 2, 19, 18, 0).getTime());
+  });
+
+  it("keeps later due occurrences queued when parallel scheduling is enabled", () => {
+    const dayStartMs = new Date(2026, 2, 19).getTime();
+    const definition = createBreakDefinition({
+      startTimeSeconds: 8 * 60 * 60,
+      intervalSeconds: 30 * 60,
+    });
+
+    const state = createDefinitionState(
+      definition,
+      dayStartMs + 8 * 60 * 60 * 1000,
+    );
+
+    const updatedState = advanceStateAfterQueuedOccurrence(
+      state,
+      dayStartMs + 9 * 60 * 60 * 1000,
+      true,
+    );
+
+    expect(updatedState.nextIndex).toBe(1);
+    expect(updatedState.occurrencesMs[updatedState.nextIndex]).toBe(
+      dayStartMs + 8 * 60 * 60 * 1000 + 30 * 60 * 1000,
+    );
+  });
+
+  it("collapses past-due backlog when parallel scheduling is disabled", () => {
+    const dayStartMs = new Date(2026, 2, 19).getTime();
+    const definition = createBreakDefinition({
+      startTimeSeconds: 8 * 60 * 60,
+      intervalSeconds: 30 * 60,
+    });
+
+    const state = createDefinitionState(
+      definition,
+      dayStartMs + 8 * 60 * 60 * 1000,
+    );
+
+    const updatedState = advanceStateAfterQueuedOccurrence(
+      state,
+      dayStartMs + 9 * 60 * 60 * 1000,
+      false,
+    );
+
+    expect(updatedState.nextIndex).toBe(3);
+    expect(updatedState.occurrencesMs[updatedState.nextIndex]).toBe(
+      dayStartMs + 9 * 60 * 60 * 1000 + 30 * 60 * 1000,
+    );
   });
 });

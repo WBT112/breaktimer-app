@@ -15,6 +15,9 @@ process.once("loaded", () => {
     invokeGetActiveBreak: () => {
       return ipcRenderer.invoke("ACTIVE_BREAK_GET");
     },
+    invokeGetBreakDefinitionPreviews: (settings) => {
+      return ipcRenderer.invoke("BREAK_DEFINITION_PREVIEWS_GET", settings);
+    },
     invokeBreakPostpone: (action) => {
       return ipcRenderer.invoke("BREAK_POSTPONE", action);
     },

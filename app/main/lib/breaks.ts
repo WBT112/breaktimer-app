@@ -15,6 +15,7 @@ import {
   SoundType,
 } from "../../types/settings";
 import {
+  advanceStateAfterQueuedOccurrence,
   BreakDefinitionState,
   advanceStatePastTime,
   findNextOccurrenceAfter,
@@ -549,6 +550,8 @@ function enqueueDueScheduledOccurrences(
   nowMs: number,
   settings: Settings,
 ): void {
+  const parallelBreaksEnabled = settings.parallelBreaksEnabled;
+
   for (const definition of getEnabledBreakDefinitions(settings)) {
     let state = getDefinitionState(definition, nowMs);
 
@@ -558,8 +561,9 @@ function enqueueDueScheduledOccurrences(
     }
 
     if (
-      activeBreakContext?.breakDefinition.id === definition.id ||
-      hasQueuedOccurrence(definition.id)
+      (!parallelBreaksEnabled &&
+        activeBreakContext?.breakDefinition.id === definition.id) ||
+      (!parallelBreaksEnabled && hasQueuedOccurrence(definition.id))
     ) {
       setDefinitionState(advanceStatePastTime(state, nowMs));
       continue;
@@ -592,10 +596,17 @@ function enqueueDueScheduledOccurrences(
 
       queueOccurrence({
         ...occurrence,
-        dueAtMs: nowMs,
+        dueAtMs: parallelBreaksEnabled ? dueAtMs : nowMs,
       });
-      state = advanceStatePastTime(state, nowMs);
-      break;
+      state = advanceStateAfterQueuedOccurrence(
+        state,
+        nowMs,
+        parallelBreaksEnabled,
+      );
+
+      if (!parallelBreaksEnabled) {
+        break;
+      }
     }
 
     setDefinitionState(state);

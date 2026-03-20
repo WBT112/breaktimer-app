@@ -1,8 +1,9 @@
-import { ActiveBreakContext } from "../../types/breaks";
+import { ActiveBreakContext, BreakDefinitionPreview } from "../../types/breaks";
 import { BrowserWindow, ipcMain, IpcMainInvokeEvent, screen } from "electron";
 import log from "electron-log";
 import { IpcChannel } from "../../types/ipc";
 import { Settings, SoundType } from "../../types/settings";
+import { getBreakDefinitionPreviews } from "./break-preview";
 import {
   completeBreakTracking,
   getActiveBreakContext,
@@ -15,6 +16,7 @@ import {
 } from "./breaks";
 import {
   getSettings,
+  getBreakCompletionHistory,
   setSettings,
   getAppInitialized,
   setAppInitialized,
@@ -41,6 +43,21 @@ ipcMain.handle(IpcChannel.ActiveBreakGet, (): ActiveBreakContext | null => {
   log.info(IpcChannel.ActiveBreakGet);
   return getActiveBreakContext();
 });
+
+ipcMain.handle(
+  IpcChannel.BreakDefinitionPreviewsGet,
+  (
+    _event: IpcMainInvokeEvent,
+    settings: Settings,
+  ): BreakDefinitionPreview[] => {
+    log.info(IpcChannel.BreakDefinitionPreviewsGet);
+    return getBreakDefinitionPreviews(
+      settings,
+      getBreakCompletionHistory(),
+      Date.now(),
+    );
+  },
+);
 
 ipcMain.handle(IpcChannel.AllowPostponeGet, (): boolean => {
   log.info(IpcChannel.AllowPostponeGet);

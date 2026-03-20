@@ -29,3 +29,9 @@ export type BreakCompletionHistory = Record<
   string,
   BreakCompletionHistoryEntry
 >;
+
+export interface BreakDefinitionPreview {
+  definitionId: string;
+  nextRunAtMs: number | null;
+  reason: string;
+}

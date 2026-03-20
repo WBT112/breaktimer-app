@@ -1,6 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { BreakDefinitionPreview } from "../../../types/breaks";
 import {
   Select,
   SelectContent,
@@ -24,6 +25,7 @@ interface BreakDefinitionCardProps {
   breakDefinition: BreakDefinition;
   breaksEnabled: boolean;
   index: number;
+  preview: BreakDefinitionPreview | null;
   onChange: (breakDefinition: BreakDefinition) => void;
   onDelete: () => void;
 }
@@ -40,6 +42,7 @@ export default function BreakDefinitionCard({
   breakDefinition,
   breaksEnabled,
   index,
+  preview,
   onChange,
   onDelete,
 }: BreakDefinitionCardProps) {
@@ -52,6 +55,37 @@ export default function BreakDefinitionCard({
     });
   };
 
+  const formatNextRun = (timestampMs: number | null): string => {
+    if (timestampMs === null) {
+      return "Kein Termin geplant";
+    }
+
+    const date = new Date(timestampMs);
+    const now = new Date();
+    const tomorrow = new Date(now);
+    tomorrow.setDate(now.getDate() + 1);
+
+    const dateLabel = new Intl.DateTimeFormat("de-DE", {
+      weekday: "short",
+      day: "2-digit",
+      month: "2-digit",
+    }).format(date);
+    const timeLabel = new Intl.DateTimeFormat("de-DE", {
+      hour: "2-digit",
+      minute: "2-digit",
+    }).format(date);
+
+    if (date.toDateString() === now.toDateString()) {
+      return `Heute, ${timeLabel}`;
+    }
+
+    if (date.toDateString() === tomorrow.toDateString()) {
+      return `Morgen, ${timeLabel}`;
+    }
+
+    return `${dateLabel}, ${timeLabel}`;
+  };
+
   return (
     <div className="rounded-lg border border-border bg-background/60 p-4 space-y-4">
       <div className="flex items-center justify-between gap-4">
@@ -62,6 +96,18 @@ export default function BreakDefinitionCard({
           <p className="text-sm text-muted-foreground">
             Plane diese Pause mit eigenem Zeitplan, Text, Verschiebung und Ton.
           </p>
+          <div className="mt-2 text-xs text-muted-foreground space-y-1">
+            <p>
+              <span className="font-medium text-foreground">
+                Nächster Lauf:
+              </span>{" "}
+              {formatNextRun(preview?.nextRunAtMs ?? null)}
+            </p>
+            <p>
+              <span className="font-medium text-foreground">Grund:</span>{" "}
+              {preview?.reason ?? "Wird berechnet ..."}
+            </p>
+          </div>
         </div>
         <div className="flex items-center gap-3">
           <Switch

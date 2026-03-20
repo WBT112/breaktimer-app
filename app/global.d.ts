@@ -1,5 +1,6 @@
 declare const ipcRenderer: {
   invokeGetActiveBreak: () => Promise<unknown>;
+  invokeGetBreakDefinitionPreviews: (settings: unknown) => Promise<unknown>;
   invokeBreakPostpone: (action: string) => Promise<void>;
   invokeGetAllowPostpone: () => Promise<boolean>;
   invokeGetBreakLength: () => Promise<number>;
