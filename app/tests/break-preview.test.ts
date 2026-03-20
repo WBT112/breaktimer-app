@@ -60,7 +60,8 @@ describe("break preview", () => {
     expect(previews[0].nextRunAtMs).toBe(
       new Date(2026, 2, 20, 10, 0).getTime(),
     );
-    expect(previews[0].reason).toBe("Nächster Termin laut Intervall");
+    expect(previews[0].reason).toContain("Startzeit 08:00, Intervall 2 Stunden.");
+    expect(previews[0].reason).toContain("Nächster Lauf ist heute um 10:00.");
   });
 
   it("explains when today's daily limit has already been reached", () => {
@@ -94,6 +95,42 @@ describe("break preview", () => {
     expect(nextRun.getFullYear()).toBe(2026);
     expect(nextRun.getMonth()).toBe(2);
     expect(nextRun.getDate()).toBe(23);
-    expect(previews[0].reason).toBe("Heutiges Tageslimit erreicht");
+    expect(previews[0].reason).toContain(
+      "Letzter abgeschlossener Lauf war heute um 08:30.",
+    );
+    expect(previews[0].reason).toContain("Heutiges Tageslimit erreicht (1/1).");
+  });
+
+  it("describes queued snoozes with postpone count and configured delay", () => {
+    const { settings, history } = createSettings({
+      breakDefinitions: [
+        createDefaultBreakDefinition("break-1", {
+          postponeLengthSeconds: 15 * 60,
+        }),
+      ],
+    });
+
+    const previews = getBreakDefinitionPreviews(
+      settings,
+      history,
+      new Date(2026, 2, 20, 9, 30).getTime(),
+      {
+        "break-1": {
+          breakDefinitionId: "break-1",
+          dueAtMs: new Date(2026, 2, 20, 9, 45).getTime(),
+          sequenceIndex: 1,
+          postponeCount: 2,
+          source: "snoozed",
+        },
+      },
+    );
+
+    expect(previews[0].reason).toContain("Diese Pause wurde 2x verschoben.");
+    expect(previews[0].reason).toContain(
+      "Eingestellte Verzögerung: 15 Minuten pro Verschiebung.",
+    );
+    expect(previews[0].reason).toContain(
+      "Nächster Snooze-Termin ist heute um 09:45.",
+    );
   });
 });

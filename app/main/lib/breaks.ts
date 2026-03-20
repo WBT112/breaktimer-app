@@ -187,6 +187,27 @@ export function getBreakTime(): BreakTime {
   return nextOccurrence ? moment(nextOccurrence.dueAtMs) : null;
 }
 
+export function getQueuedOccurrencesForPreview(): Record<
+  string,
+  ScheduledBreakOccurrence
+> {
+  const queuedOccurrencesByDefinition: Record<
+    string,
+    ScheduledBreakOccurrence
+  > = {};
+
+  for (const occurrence of dueQueue) {
+    const existingOccurrence =
+      queuedOccurrencesByDefinition[occurrence.breakDefinitionId];
+
+    if (!existingOccurrence || occurrence.dueAtMs < existingOccurrence.dueAtMs) {
+      queuedOccurrencesByDefinition[occurrence.breakDefinitionId] = occurrence;
+    }
+  }
+
+  return queuedOccurrencesByDefinition;
+}
+
 export function getActiveBreakContext(): ActiveBreakContext | null {
   return activeBreakContext;
 }

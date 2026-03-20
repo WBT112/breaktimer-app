@@ -103,7 +103,7 @@ export default function BreakDefinitionCard({
               </span>{" "}
               {formatNextRun(preview?.nextRunAtMs ?? null)}
             </p>
-            <p>
+            <p className="whitespace-pre-line">
               <span className="font-medium text-foreground">Grund:</span>{" "}
               {preview?.reason ?? "Wird berechnet ..."}
             </p>
