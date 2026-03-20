@@ -33,7 +33,10 @@ export default function BreaksCard({
   const handleAddBreakDefinition = (): void => {
     onBreakDefinitionsChange([
       ...settingsDraft.breakDefinitions,
-      createDefaultBreakDefinition(),
+      createDefaultBreakDefinition(undefined, {
+        backgroundColor: settingsDraft.backgroundColor,
+        textColor: settingsDraft.textColor,
+      }),
     ]);
   };
 

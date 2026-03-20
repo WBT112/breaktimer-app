@@ -261,6 +261,33 @@ export default function BreakDefinitionCard({
           placeholder="Pausentext eingeben ..."
         />
       </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <Label className="text-sm font-medium">Hintergrundfarbe</Label>
+          <input
+            className="w-20 h-10 rounded cursor-pointer border appearance-none [&::-webkit-color-swatch-wrapper]:p-0 [&::-webkit-color-swatch]:border-0 [&::-webkit-color-swatch]:rounded"
+            type="color"
+            value={breakDefinition.backgroundColor}
+            onChange={(event) =>
+              updateBreakDefinition({ backgroundColor: event.target.value })
+            }
+            disabled={disabled}
+          />
+        </div>
+        <div className="space-y-2">
+          <Label className="text-sm font-medium">Textfarbe</Label>
+          <input
+            className="w-20 h-10 rounded cursor-pointer border appearance-none [&::-webkit-color-swatch-wrapper]:p-0 [&::-webkit-color-swatch]:border-0 [&::-webkit-color-swatch]:rounded"
+            type="color"
+            value={breakDefinition.textColor}
+            onChange={(event) =>
+              updateBreakDefinition({ textColor: event.target.value })
+            }
+            disabled={disabled}
+          />
+        </div>
+      </div>
     </div>
   );
 }

@@ -38,7 +38,18 @@ function getStartTimeSecondsFromWorkingHours(
 function migrateLegacyBreakDefinition(
   settings: Record<string, unknown>,
 ): BreakDefinition {
-  const definition = createDefaultBreakDefinition(createBreakDefinitionId());
+  const definitionOverrides: Partial<BreakDefinition> = {};
+  if (typeof settings.backgroundColor === "string") {
+    definitionOverrides.backgroundColor = settings.backgroundColor;
+  }
+  if (typeof settings.textColor === "string") {
+    definitionOverrides.textColor = settings.textColor;
+  }
+
+  const definition = createDefaultBreakDefinition(
+    createBreakDefinitionId(),
+    definitionOverrides,
+  );
   const migratedStartTimeSeconds =
     getStartTimeSecondsFromWorkingHours(settings);
 
@@ -193,6 +204,46 @@ const migrations: Migration[] = [
       delete settings.breakSoundVolume;
       delete settings.breakTitle;
       delete settings.breakMessage;
+
+      return settings;
+    },
+  },
+  {
+    version: 4,
+    migrate: (settings) => {
+      const defaultBackgroundColor =
+        typeof settings.backgroundColor === "string"
+          ? settings.backgroundColor
+          : undefined;
+      const defaultTextColor =
+        typeof settings.textColor === "string" ? settings.textColor : undefined;
+
+      if (Array.isArray(settings.breakDefinitions)) {
+        settings.breakDefinitions = settings.breakDefinitions.map(
+          (breakDefinition) => ({
+            ...createDefaultBreakDefinition(
+              typeof breakDefinition.id === "string"
+                ? breakDefinition.id
+                : createBreakDefinitionId(),
+              {
+                ...(defaultBackgroundColor
+                  ? { backgroundColor: defaultBackgroundColor }
+                  : {}),
+                ...(defaultTextColor ? { textColor: defaultTextColor } : {}),
+              },
+            ),
+            ...breakDefinition,
+            backgroundColor:
+              typeof breakDefinition.backgroundColor === "string"
+                ? breakDefinition.backgroundColor
+                : defaultBackgroundColor,
+            textColor:
+              typeof breakDefinition.textColor === "string"
+                ? breakDefinition.textColor
+                : defaultTextColor,
+          }),
+        );
+      }
 
       return settings;
     },

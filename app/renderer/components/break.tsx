@@ -164,6 +164,9 @@ export default function Break() {
     return null;
   }
 
+  const activeTextColor = activeBreak.breakDefinition.textColor;
+  const activeBackgroundColor = activeBreak.breakDefinition.backgroundColor;
+
   if (countingDown) {
     return (
       <div
@@ -192,8 +195,8 @@ export default function Break() {
                 settings.skipBreakEnabled && !settings.immediatelyStartBreaks
               }
               timeSinceLastBreak={timeSinceLastBreak}
-              textColor={settings.textColor}
-              backgroundColor={settings.backgroundColor}
+              textColor={activeTextColor}
+              backgroundColor={activeBackgroundColor}
             />
           </div>
         )}
@@ -215,7 +218,7 @@ export default function Break() {
             delay: closing ? 0.3 : 0,
           }}
           style={{
-            backgroundColor: createDarkerRgba(settings.backgroundColor, 1),
+            backgroundColor: createDarkerRgba(activeBackgroundColor, 1),
           }}
         />
       )}
@@ -231,8 +234,8 @@ export default function Break() {
           ease: [0.25, 0.46, 0.45, 0.94], // easeOutQuart
         }}
         style={{
-          color: settings.textColor,
-          backgroundColor: settings.backgroundColor,
+          color: activeTextColor,
+          backgroundColor: activeBackgroundColor,
         }}
       >
         {ready && (
@@ -241,7 +244,7 @@ export default function Break() {
             breakLengthSeconds={activeBreak.breakDefinition.breakLengthSeconds}
             endBreakEnabled={settings.endBreakEnabled}
             onEndBreak={handleEndBreak}
-            textColor={settings.textColor}
+            textColor={activeTextColor}
             isClosing={closing}
             sharedBreakEndTime={sharedBreakEndTime}
           />

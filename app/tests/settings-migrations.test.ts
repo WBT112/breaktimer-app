@@ -62,7 +62,7 @@ describe("settings migrations", () => {
 
     const migrated = migrateSettingsObject(legacySettings, 2);
 
-    expect(migrated.version).toBe(3);
+    expect(migrated.version).toBe(4);
     expect(migrated.settings.breakDefinitions).toHaveLength(1);
     expect(migrated.settings.breakDefinitions[0]).toMatchObject({
       notificationType: NotificationType.Popup,
@@ -76,6 +76,8 @@ describe("settings migrations", () => {
       postponeLimit: 2,
       soundType: SoundType.Scifi,
       breakSoundVolume: 0.4,
+      backgroundColor: "#111111",
+      textColor: "#ffffff",
     });
     expect("notificationType" in migrated.settings).toBe(false);
     expect("breakFrequencySeconds" in migrated.settings).toBe(false);

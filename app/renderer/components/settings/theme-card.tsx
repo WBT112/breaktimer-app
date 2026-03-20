@@ -25,7 +25,7 @@ export default function ThemeCard({
           className="text-base font-semibold"
           style={{ color: settingsDraft.textColor }}
         >
-          Design
+          Standardfarben
         </h3>
       </div>
       <div className="space-y-4">
@@ -35,7 +35,7 @@ export default function ThemeCard({
               className="text-sm font-medium"
               style={{ color: settingsDraft.textColor }}
             >
-              Primärfarbe
+              Standard-Hintergrundfarbe
             </Label>
             <input
               className="w-20 h-10 rounded cursor-pointer border appearance-none [&::-webkit-color-swatch-wrapper]:p-0 [&::-webkit-color-swatch]:border-0 [&::-webkit-color-swatch]:rounded"
@@ -53,7 +53,7 @@ export default function ThemeCard({
               className="text-sm font-medium"
               style={{ color: settingsDraft.textColor }}
             >
-              Textfarbe
+              Standard-Textfarbe
             </Label>
             <input
               className="w-20 h-10 rounded cursor-pointer border border-border appearance-none [&::-webkit-color-swatch-wrapper]:p-0 [&::-webkit-color-swatch]:border-0 [&::-webkit-color-swatch]:rounded"
@@ -73,7 +73,7 @@ export default function ThemeCard({
           }}
           className="!bg-transparent hover:!bg-current/10 active:!bg-current/20"
         >
-          Zurücksetzen
+          Standard zurücksetzen
         </Button>
       </div>
     </div>

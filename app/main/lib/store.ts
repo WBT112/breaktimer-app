@@ -13,7 +13,7 @@ const store = new Store({
   defaults: {
     settings: defaultSettings,
     appInitialized: false,
-    settingsVersion: 3,
+    settingsVersion: 4,
     disableEndTime: null,
     breakCompletionHistory: {},
   },

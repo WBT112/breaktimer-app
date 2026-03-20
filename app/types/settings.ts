@@ -17,6 +17,8 @@ export interface BreakDefinition {
   postponeLimit: number;
   soundType: SoundType;
   breakSoundVolume: number;
+  backgroundColor: string;
+  textColor: string;
 }
 
 export interface WorkingHoursRange {
@@ -75,12 +77,16 @@ export const defaultWorkingRange: WorkingHoursRange = {
   toMinutes: 18 * 60, // 18:00
 };
 
+export const defaultBreakBackgroundColor = "#16a085";
+export const defaultBreakTextColor = "#ffffff";
+
 export function createBreakDefinitionId(): string {
   return `break-${Math.random().toString(36).slice(2, 10)}`;
 }
 
 export function createDefaultBreakDefinition(
   id = createBreakDefinitionId(),
+  overrides: Partial<BreakDefinition> = {},
 ): BreakDefinition {
   return {
     id,
@@ -97,6 +103,9 @@ export function createDefaultBreakDefinition(
     postponeLimit: 0,
     soundType: SoundType.Gong,
     breakSoundVolume: 1,
+    backgroundColor: defaultBreakBackgroundColor,
+    textColor: defaultBreakTextColor,
+    ...overrides,
   };
 }
 
@@ -152,8 +161,8 @@ export const defaultSettings: Settings = {
   idleResetEnabled: true,
   idleResetLengthSeconds: 5 * 60,
   idleResetNotification: false,
-  backgroundColor: "#16a085",
-  textColor: "#ffffff",
+  backgroundColor: defaultBreakBackgroundColor,
+  textColor: defaultBreakTextColor,
   showBackdrop: true,
   backdropOpacity: 0.7,
   endBreakEnabled: true,

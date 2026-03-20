@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   createDefaultBreakDefinition,
-  normalizeSettings,
   defaultSettings,
+  normalizeSettings,
 } from "../types/settings";
 
 describe("settings helpers", () => {
@@ -49,5 +49,14 @@ describe("settings helpers", () => {
     expect(
       normalizedSettings.breakDefinitions.map(({ enabled }) => enabled),
     ).toEqual([false, true]);
+  });
+
+  it("creates new break definitions with default colors", () => {
+    const breakDefinition = createDefaultBreakDefinition("break-3");
+
+    expect(breakDefinition.backgroundColor).toBe(
+      defaultSettings.backgroundColor,
+    );
+    expect(breakDefinition.textColor).toBe(defaultSettings.textColor);
   });
 });
