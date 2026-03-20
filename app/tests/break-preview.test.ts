@@ -64,6 +64,39 @@ describe("break preview", () => {
     expect(previews[0].reason).toContain("Nächster Lauf ist heute um 10:00.");
   });
 
+  it("rounds preview text to minutes when the next run is not aligned to a full minute", () => {
+    const { settings, history } = createSettings({
+      breakDefinitions: [
+        createDefaultBreakDefinition("break-1", {
+          postponeLengthSeconds: 10 * 60,
+        }),
+      ],
+    });
+
+    const previews = getBreakDefinitionPreviews(
+      settings,
+      history,
+      new Date(2026, 2, 20, 16, 46, 37).getTime(),
+      {
+        "break-1": {
+          occurrenceId: "scheduled:break-1:123",
+          breakDefinitionId: "break-1",
+          dueAtMs: new Date(2026, 2, 20, 16, 56, 37).getTime(),
+          sequenceIndex: 1,
+          postponeCount: 1,
+          source: "snoozed",
+        },
+      },
+    );
+
+    expect(previews[0].nextRunAtMs).toBe(
+      new Date(2026, 2, 20, 16, 56, 37).getTime(),
+    );
+    expect(previews[0].reason).toContain(
+      "Nächster Snooze-Termin ist heute um 16:56.",
+    );
+  });
+
   it("explains when today's daily limit has already been reached", () => {
     const completedAtMs = new Date(2026, 2, 20, 8, 30).getTime();
     const dayStartMs = new Date(2026, 2, 20).getTime();

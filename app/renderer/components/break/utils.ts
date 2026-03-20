@@ -35,8 +35,53 @@ export interface TimeRemaining {
 
 export type BreakNotificationPhase = "grace" | "countdown" | "ready";
 
+export interface BreakNotificationDurations {
+  gracePeriodMs: number;
+  totalCountdownMs: number;
+}
+
+function parseDurationOverride(value: string | undefined): number | null {
+  if (value === undefined) {
+    return null;
+  }
+
+  const parsed = Number(value);
+
+  if (!Number.isFinite(parsed) || parsed < 0) {
+    return null;
+  }
+
+  return Math.floor(parsed);
+}
+
+export function getBreakNotificationDurations(
+  env: Record<string, string | undefined> | undefined = typeof processEnv ===
+  "object"
+    ? processEnv
+    : undefined,
+): BreakNotificationDurations {
+  const gracePeriodMs =
+    parseDurationOverride(env?.BREAKTIMER_TEST_GRACE_MS) ?? 60000;
+  const totalCountdownMs = Math.max(
+    parseDurationOverride(env?.BREAKTIMER_TEST_COUNTDOWN_MS) ?? 120000,
+    gracePeriodMs,
+  );
+
+  return {
+    gracePeriodMs,
+    totalCountdownMs,
+  };
+}
+
 export function isPrimaryBreakWindow(windowId: string | null): boolean {
   return windowId === "0" || windowId === null;
+}
+
+export function shouldSkipBreakCountdown(
+  immediatelyStartBreaks: boolean,
+  startedFromTray: boolean,
+): boolean {
+  return immediatelyStartBreaks || startedFromTray;
 }
 
 export function getBreakNotificationPhase(

@@ -23,6 +23,7 @@ export default function WelcomeModal({ open, onClose }: WelcomeModalProps) {
   return (
     <Dialog open={open} onOpenChange={() => {}}>
       <DialogContent
+        data-testid="welcome-modal"
         className="max-w-[400px] w-[400px]"
         showCloseButton={false}
       >
@@ -34,7 +35,11 @@ export default function WelcomeModal({ open, onClose }: WelcomeModalProps) {
           </DialogDescription>
         </DialogHeader>
         <DialogFooter>
-          <Button onClick={handleUnderstood} className="w-full">
+          <Button
+            data-testid="welcome-dismiss-button"
+            onClick={handleUnderstood}
+            className="w-full"
+          >
             Verstanden, los geht&apos;s!
           </Button>
         </DialogFooter>

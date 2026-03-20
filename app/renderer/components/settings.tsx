@@ -208,7 +208,10 @@ export default function SettingsEl() {
   };
 
   return (
-    <div className="h-screen w-full flex flex-col bg-background">
+    <div
+      data-testid="settings-root"
+      className="h-screen w-full flex flex-col bg-background"
+    >
       <Tabs
         defaultValue="break-settings"
         className="w-full h-full flex flex-col"

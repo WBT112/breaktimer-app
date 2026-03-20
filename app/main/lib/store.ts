@@ -12,6 +12,7 @@ import { pruneBreakEventLog } from "./break-statistics";
 import { migrateSettingsObject } from "./settings-migrations";
 
 const store = new Store({
+  cwd: process.env.BREAKTIMER_STORE_DIR,
   defaults: {
     settings: defaultSettings,
     appInitialized: false,

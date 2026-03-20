@@ -148,6 +148,7 @@ export function BreakProgress({
 
   return (
     <motion.div
+      data-testid="break-progress"
       className="flex flex-col h-full w-full z-10 relative space-y-6"
       {...fadeIn}
     >
@@ -161,6 +162,7 @@ export function BreakProgress({
         </h1>
         {showEndBreakButton && (
           <Button
+            data-testid="break-end-button"
             className="!bg-transparent hover:!bg-black/10 active:!bg-black/20 border-white/20"
             onClick={onEndBreak}
             variant="outline"

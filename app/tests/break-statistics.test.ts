@@ -137,10 +137,12 @@ describe("break statistics", () => {
     expect(snapshot.kpis.idleResetCount).toBe(1);
     expect(snapshot.definitionSummaries[0]).toMatchObject({
       label: "Augenpause",
+      maxOccurrencesPerDay: 4,
       completedCount: 2,
       dueCount: 1,
       fulfilledDueCount: 1,
       goalMetDays: 1,
+      goalEligibleDays: 1,
     });
   });
 
@@ -215,6 +217,50 @@ describe("break statistics", () => {
     expect(snapshot.badges.map((badge) => badge.id)).toEqual(
       expect.arrayContaining(["first-break", "goal-3"]),
     );
+  });
+
+  it("summarizes one-per-day timers by eligible goal days instead of raw due totals", () => {
+    const nowMs = new Date(2026, 2, 20, 12, 0).getTime();
+    const settings = createSettings({
+      breakDefinitions: [
+        createDefaultBreakDefinition("break-1", {
+          breakTitle: "Prehab Timer 2",
+          maxOccurrencesPerDay: 1,
+        }),
+      ],
+    });
+    const eventLog: BreakEventLogEntry[] = [];
+
+    for (let dayOffset = 0; dayOffset < 3; dayOffset++) {
+      const dayStartMs = new Date(2026, 2, 18 + dayOffset).getTime();
+      const occurrence: ScheduledBreakOccurrence = {
+        occurrenceId: createScheduledOccurrenceId("break-1", dayStartMs, 0),
+        breakDefinitionId: "break-1",
+        dueAtMs: new Date(2026, 2, 18 + dayOffset, 10, 0).getTime(),
+        sequenceIndex: 0,
+        postponeCount: 0,
+        source: "scheduled",
+      };
+
+      eventLog.push(
+        createBreakEventLogEntry(occurrence, "due", occurrence.dueAtMs),
+      );
+    }
+
+    const snapshot = buildBreakStatisticsSnapshot(
+      settings,
+      eventLog,
+      "7d",
+      nowMs,
+    );
+
+    expect(snapshot.definitionSummaries[0]).toMatchObject({
+      maxOccurrencesPerDay: 1,
+      dueCount: 3,
+      fulfilledDueCount: 0,
+      goalEligibleDays: 3,
+      goalMetDays: 0,
+    });
   });
 
   it("does not frame postpones negatively when all due breaks were still completed", () => {

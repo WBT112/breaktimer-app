@@ -65,6 +65,16 @@ function formatTrackingStart(timestampMs: number | null): string {
   }).format(new Date(timestampMs))}.`;
 }
 
+function getDefinitionGoalSummary(
+  summary: BreakStatisticsSnapshot["definitionSummaries"][number],
+): string {
+  if (summary.maxOccurrencesPerDay !== null) {
+    return `${summary.goalMetDays}/${summary.goalEligibleDays} Tage mit Timer-Ziel erfüllt`;
+  }
+
+  return `${summary.fulfilledDueCount}/${summary.dueCount} reguläre Termine erfüllt`;
+}
+
 export default function StatisticsCard({
   snapshot,
   selectedRange,
@@ -371,10 +381,7 @@ export default function StatisticsCard({
                         </div>
                         <div className="text-right text-xs text-muted-foreground">
                           <p>{summary.goalMetDays} Tage Ziel erreicht</p>
-                          <p>
-                            {summary.fulfilledDueCount}/{summary.dueCount}{" "}
-                            reguläre Termine erfüllt
-                          </p>
+                          <p>{getDefinitionGoalSummary(summary)}</p>
                         </div>
                       </div>
                       <div className="grid grid-cols-3 gap-3 text-sm">

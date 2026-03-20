@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
+  getBreakNotificationDurations,
   getBreakNotificationPhase,
   isPrimaryBreakWindow,
+  shouldSkipBreakCountdown,
   shouldRequestBreakStartAfterCountdown,
   shouldShowEndBreakButton,
 } from "../renderer/components/break/utils";
@@ -32,6 +34,12 @@ describe("break ui utils", () => {
     expect(shouldRequestBreakStartAfterCountdown(false, true)).toBe(false);
   });
 
+  it("skips the notification countdown for immediate or tray-started breaks", () => {
+    expect(shouldSkipBreakCountdown(true, false)).toBe(true);
+    expect(shouldSkipBreakCountdown(false, true)).toBe(true);
+    expect(shouldSkipBreakCountdown(false, false)).toBe(false);
+  });
+
   it("treats window 0 and missing ids as the primary break window", () => {
     expect(isPrimaryBreakWindow("0")).toBe(true);
     expect(isPrimaryBreakWindow(null)).toBe(true);
@@ -41,5 +49,29 @@ describe("break ui utils", () => {
   it("shows the end button once the target time is reached for manually ended breaks", () => {
     expect(shouldShowEndBreakButton(false, true, false)).toBe(false);
     expect(shouldShowEndBreakButton(false, true, true)).toBe(true);
+  });
+
+  it("supports short countdown overrides in test mode", () => {
+    expect(
+      getBreakNotificationDurations({
+        BREAKTIMER_TEST_GRACE_MS: "100",
+        BREAKTIMER_TEST_COUNTDOWN_MS: "250",
+      }),
+    ).toEqual({
+      gracePeriodMs: 100,
+      totalCountdownMs: 250,
+    });
+  });
+
+  it("falls back to production countdown durations for invalid overrides", () => {
+    expect(
+      getBreakNotificationDurations({
+        BREAKTIMER_TEST_GRACE_MS: "-5",
+        BREAKTIMER_TEST_COUNTDOWN_MS: "invalid",
+      }),
+    ).toEqual({
+      gracePeriodMs: 60000,
+      totalCountdownMs: 120000,
+    });
   });
 });

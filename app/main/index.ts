@@ -10,6 +10,8 @@ import { getAppInitialized } from "./lib/store";
 import { initTray } from "./lib/tray";
 import { createSettingsWindow, createSoundsWindow } from "./lib/windows";
 
+const isTestMode = process.env.BREAKTIMER_TEST_MODE === "1";
+
 const gotTheLock = app.requestSingleInstanceLock();
 
 app.on("second-instance", (event, commandLine, workingDirectory) => {
@@ -133,7 +135,7 @@ app.on("ready", async () => {
   const appInitialized = getAppInitialized();
 
   if (!appInitialized) {
-    if (process.env.NODE_ENV !== "development") {
+    if (process.env.NODE_ENV !== "development" && !isTestMode) {
       setAutoLauch(true);
     }
     // Show settings window on first launch instead of notification
@@ -147,7 +149,7 @@ app.on("ready", async () => {
   initTray();
   createSoundsWindow();
 
-  if (process.env.NODE_ENV !== "development") {
+  if (process.env.NODE_ENV !== "development" && !isTestMode) {
     checkForUpdates();
   }
 });

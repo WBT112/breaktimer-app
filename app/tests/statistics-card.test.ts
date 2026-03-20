@@ -43,12 +43,14 @@ const populatedSnapshot: BreakStatisticsSnapshot = {
       categoryLabel: "Augen",
       backgroundColor: "#0f766e",
       textColor: "#ffffff",
+      maxOccurrencesPerDay: 1,
       completedCount: 12,
       postponedCount: 3,
       skippedCount: 1,
       dueCount: 10,
       fulfilledDueCount: 8,
       goalMetDays: 4,
+      goalEligibleDays: 5,
       lastCompletedAtMs: new Date(2026, 2, 20, 10, 30).getTime(),
     },
   ],
@@ -117,5 +119,6 @@ describe("statistics card", () => {
     expect(html).toContain("Kategorien im Vergleich");
     expect(html).toContain("3 Tage Tagesziel erfüllt");
     expect(html).toContain("Erfüllungsquote");
+    expect(html).toContain("4/5 Tage mit Timer-Ziel erfüllt");
   });
 });

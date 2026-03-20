@@ -17,6 +17,8 @@ release
 app/main/dist
 app/renderer/dist
 dist
+playwright-report
+test-results
 
 # dotenv
 .env

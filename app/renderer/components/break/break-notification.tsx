@@ -5,11 +5,9 @@ import { useEffect, useState } from "react";
 import {
   BreakNotificationPhase,
   formatTimeSinceLastBreak,
+  getBreakNotificationDurations,
   getBreakNotificationPhase,
 } from "./utils";
-
-const GRACE_PERIOD_MS = 60000;
-const TOTAL_COUNTDOWN_MS = 120000;
 
 interface BreakNotificationProps {
   breakMessage: string;
@@ -42,6 +40,7 @@ export function BreakNotification({
 }: BreakNotificationProps) {
   const [phase, setPhase] = useState<BreakNotificationPhase>("grace");
   const [msRemaining, setMsRemaining] = useState<number>(0);
+  const { gracePeriodMs, totalCountdownMs } = getBreakNotificationDurations();
 
   useEffect(() => {
     const startTime = moment();
@@ -53,8 +52,8 @@ export function BreakNotification({
       const nextState = getBreakNotificationPhase(
         elapsedMs,
         autoStartBreaksAfterCountdown,
-        GRACE_PERIOD_MS,
-        TOTAL_COUNTDOWN_MS,
+        gracePeriodMs,
+        totalCountdownMs,
       );
 
       setPhase(nextState.phase);
@@ -79,10 +78,15 @@ export function BreakNotification({
         clearTimeout(timeoutId);
       }
     };
-  }, [autoStartBreaksAfterCountdown, onCountdownOver]);
+  }, [
+    autoStartBreaksAfterCountdown,
+    gracePeriodMs,
+    onCountdownOver,
+    totalCountdownMs,
+  ]);
 
   const secondsRemaining = Math.ceil(msRemaining / 1000);
-  const countdownDurationMs = TOTAL_COUNTDOWN_MS - GRACE_PERIOD_MS;
+  const countdownDurationMs = totalCountdownMs - gracePeriodMs;
   const progressValue =
     phase === "countdown"
       ? ((countdownDurationMs - msRemaining) / countdownDurationMs) * 100
@@ -90,6 +94,7 @@ export function BreakNotification({
 
   return (
     <motion.div
+      data-testid="break-notification"
       className="flex flex-col w-full min-h-full z-20 rounded-xl overflow-hidden relative"
       initial={{ opacity: 0, scale: 0.9, y: 10 }}
       animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -153,6 +158,7 @@ export function BreakNotification({
               style={{ backgroundColor }}
             />
             <Button
+              data-testid="break-start-button"
               className="!bg-transparent hover:!bg-black/10 active:!bg-black/20 border-white/20 relative z-10"
               onClick={onStartBreakNow}
               variant="outline"

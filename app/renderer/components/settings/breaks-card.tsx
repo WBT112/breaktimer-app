@@ -86,6 +86,7 @@ export default function BreaksCard({
         ))}
 
         <Button
+          data-testid="add-break-definition-button"
           type="button"
           variant="outline"
           className="w-full"

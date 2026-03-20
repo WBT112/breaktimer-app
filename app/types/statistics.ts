@@ -58,12 +58,14 @@ export interface BreakStatisticsDefinitionSummary {
   categoryLabel: string;
   backgroundColor: string;
   textColor: string;
+  maxOccurrencesPerDay: number | null;
   completedCount: number;
   postponedCount: number;
   skippedCount: number;
   dueCount: number;
   fulfilledDueCount: number;
   goalMetDays: number;
+  goalEligibleDays: number;
   lastCompletedAtMs: number | null;
 }
 

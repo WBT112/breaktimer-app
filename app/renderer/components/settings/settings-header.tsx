@@ -17,7 +17,11 @@ export default function SettingsHeader(props: Props) {
         </div>
         {showSave && (
           <div className="flex items-center">
-            <Button variant="outline" onClick={handleSave}>
+            <Button
+              data-testid="settings-save-button"
+              variant="outline"
+              onClick={handleSave}
+            >
               Speichern
             </Button>
           </div>
@@ -29,12 +33,31 @@ export default function SettingsHeader(props: Props) {
             processEnv.SNAP === undefined ? "grid-cols-5" : "grid-cols-4"
           }`}
         >
-          <TabsTrigger value="break-settings">Allgemein</TabsTrigger>
-          <TabsTrigger value="statistics">Statistik</TabsTrigger>
-          <TabsTrigger value="working-hours">Arbeitszeiten</TabsTrigger>
-          <TabsTrigger value="customization">Anpassung</TabsTrigger>
+          <TabsTrigger
+            value="break-settings"
+            data-testid="settings-tab-break-settings"
+          >
+            Allgemein
+          </TabsTrigger>
+          <TabsTrigger value="statistics" data-testid="settings-tab-statistics">
+            Statistik
+          </TabsTrigger>
+          <TabsTrigger
+            value="working-hours"
+            data-testid="settings-tab-working-hours"
+          >
+            Arbeitszeiten
+          </TabsTrigger>
+          <TabsTrigger
+            value="customization"
+            data-testid="settings-tab-customization"
+          >
+            Anpassung
+          </TabsTrigger>
           {processEnv.SNAP === undefined && (
-            <TabsTrigger value="system">System</TabsTrigger>
+            <TabsTrigger value="system" data-testid="settings-tab-system">
+              System
+            </TabsTrigger>
           )}
         </TabsList>
       </div>

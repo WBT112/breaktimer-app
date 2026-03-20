@@ -7,6 +7,7 @@ import { BreakProgress } from "./break/break-progress";
 import {
   createDarkerRgba,
   isPrimaryBreakWindow,
+  shouldSkipBreakCountdown,
   shouldRequestBreakStartAfterCountdown,
 } from "./break/utils";
 
@@ -46,7 +47,12 @@ export default function Break() {
       setActiveBreak(activeBreak);
 
       // Skip the countdown if immediately start breaks is enabled or started from tray
-      if (settings.immediatelyStartBreaks || startedFromTray) {
+      if (
+        shouldSkipBreakCountdown(
+          settings.immediatelyStartBreaks,
+          startedFromTray,
+        )
+      ) {
         setCountingDown(false);
       }
 

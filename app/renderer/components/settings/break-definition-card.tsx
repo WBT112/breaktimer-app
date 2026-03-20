@@ -93,7 +93,10 @@ export default function BreakDefinitionCard({
   };
 
   return (
-    <div className="rounded-lg border border-border bg-background/60 p-4 space-y-4">
+    <div
+      data-testid={`break-definition-card-${index}`}
+      className="rounded-lg border border-border bg-background/60 p-4 space-y-4"
+    >
       <div className="flex items-center justify-between gap-4">
         <div>
           <h4 className="text-sm font-semibold">
@@ -368,6 +371,7 @@ export default function BreakDefinitionCard({
       <div className="space-y-2">
         <Label className="text-sm font-medium">Titel</Label>
         <Input
+          data-testid={`break-definition-title-${index}`}
           className="text-sm"
           value={breakDefinition.breakTitle}
           onChange={(event) =>

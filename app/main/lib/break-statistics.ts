@@ -291,7 +291,6 @@ function getLatestCategoryLabel(
 function buildDefinitionSummaries(
   settings: Settings,
   filteredLog: BreakEventLogEntry[],
-  dayPoints: BreakStatisticsDayPoint[],
 ): BreakStatisticsDefinitionSummary[] {
   const completedOccurrenceIds = getCompletedOccurrenceIds(filteredLog);
 
@@ -303,6 +302,8 @@ function buildDefinitionSummaries(
       let dueCount = 0;
       let fulfilledDueCount = 0;
       let lastCompletedAtMs: number | null = null;
+      const dueCountByDay = new Map<number, number>();
+      const fulfilledCountByDay = new Map<number, number>();
 
       for (const entry of filteredLog) {
         if (entry.definitionId !== definition.id) {
@@ -326,26 +327,30 @@ function buildDefinitionSummaries(
           entry.occurrenceSource === "scheduled"
         ) {
           dueCount += 1;
+          const dayStartMs = getDayStartMs(entry.timestampMs);
+          dueCountByDay.set(
+            dayStartMs,
+            (dueCountByDay.get(dayStartMs) ?? 0) + 1,
+          );
           if (completedOccurrenceIds.has(entry.occurrenceId)) {
             fulfilledDueCount += 1;
+            fulfilledCountByDay.set(
+              dayStartMs,
+              (fulfilledCountByDay.get(dayStartMs) ?? 0) + 1,
+            );
           }
         }
       }
 
-      const goalMetDays = dayPoints.filter((dayPoint) => {
-        if (!dayPoint.goalMet) {
-          return false;
-        }
-
-        return filteredLog.some(
-          (entry) =>
-            entry.definitionId === definition.id &&
-            entry.type === "due" &&
-            entry.occurrenceSource === "scheduled" &&
-            getDayStartMs(entry.timestampMs) === dayPoint.dayStartMs &&
-            completedOccurrenceIds.has(entry.occurrenceId),
-        );
-      }).length;
+      const goalEligibleDays = dueCountByDay.size;
+      const goalMetDays = [...dueCountByDay.entries()].filter(
+        ([dayStartMs, dueCountForDay]) =>
+          (fulfilledCountByDay.get(dayStartMs) ?? 0) >=
+          Math.min(
+            dueCountForDay,
+            definition.maxOccurrencesPerDay ?? dueCountForDay,
+          ),
+      ).length;
 
       return {
         definitionId: definition.id,
@@ -354,12 +359,14 @@ function buildDefinitionSummaries(
         categoryLabel: getBreakCategoryLabel(settings, definition.categoryId),
         backgroundColor: definition.backgroundColor,
         textColor: definition.textColor,
+        maxOccurrencesPerDay: definition.maxOccurrencesPerDay,
         completedCount,
         postponedCount,
         skippedCount,
         dueCount,
         fulfilledDueCount,
         goalMetDays,
+        goalEligibleDays,
         lastCompletedAtMs,
       };
     })
@@ -687,11 +694,7 @@ export function buildBreakStatisticsSnapshot(
       trackedDurationSeconds: getTrackedDurationSeconds(filteredLog),
     },
     days: dayPoints,
-    definitionSummaries: buildDefinitionSummaries(
-      settings,
-      filteredLog,
-      dayPoints,
-    ),
+    definitionSummaries: buildDefinitionSummaries(settings, filteredLog),
     categorySummaries,
     badges: buildBadges(
       prunedLog,

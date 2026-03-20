@@ -482,6 +482,16 @@ export function getNextDueAtMs(state: BreakDefinitionState): number | null {
   return state.occurrencesMs[state.nextIndex] ?? null;
 }
 
+export function shouldReuseDefinitionState(
+  existingState: BreakDefinitionState | undefined,
+  nowMs: number,
+): existingState is BreakDefinitionState {
+  return (
+    existingState !== undefined &&
+    existingState.dayStartMs === getDayStartMs(nowMs)
+  );
+}
+
 export function sortOccurrencesByDueAt(
   occurrences: ScheduledBreakOccurrence[],
 ): ScheduledBreakOccurrence[] {

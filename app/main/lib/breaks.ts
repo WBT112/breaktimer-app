@@ -28,6 +28,7 @@ import {
   getDayStartMs,
   getNextDueAtMs,
   isAdaptiveSchedulingActive,
+  shouldReuseDefinitionState,
   sortOccurrencesByDueAt,
   shiftStateAfterIdle,
 } from "./break-schedule";
@@ -140,11 +141,7 @@ function getDefinitionState(
   const existingState = breakStates.get(definition.id);
   const dayStartMs = getDayStartMs(nowMs);
 
-  if (
-    existingState &&
-    existingState.dayStartMs === dayStartMs &&
-    (!isAdaptiveSchedulingActive(definition) || existingState.idleDeferred)
-  ) {
+  if (shouldReuseDefinitionState(existingState, nowMs)) {
     return existingState;
   }
 
@@ -159,6 +156,10 @@ function getDefinitionState(
     : createDefinitionState(definition, nowMs);
   breakStates.set(definition.id, nextState);
   return nextState;
+}
+
+function invalidateDefinitionState(definitionId: string): void {
+  breakStates.delete(definitionId);
 }
 
 function setDefinitionState(state: BreakDefinitionState): void {
@@ -390,6 +391,7 @@ function markBreakCompleted(
   actualDurationSeconds: number | null = null,
 ): void {
   if (activeBreakContext) {
+    invalidateDefinitionState(activeBreakContext.breakDefinition.id);
     logBreakEvent(
       createBreakEventLogEntry(
         activeBreakContext.occurrence,
@@ -893,9 +895,15 @@ function enqueueDueScheduledOccurrences(
 }
 
 export function endPopupBreak(): void {
+  const activeDefinitionId = activeBreakContext?.breakDefinition.id ?? null;
+
   if (currentBreakStartTime) {
     const breakDurationMs = Date.now() - currentBreakStartTime.getTime();
     completeBreakTracking(breakDurationMs);
+  }
+
+  if (activeDefinitionId !== null) {
+    invalidateDefinitionState(activeDefinitionId);
   }
 
   log.info("Break ended");
@@ -926,6 +934,7 @@ export function postponeBreak(action = "snoozed"): void {
   }
 
   const activeDefinition = activeBreakContext.breakDefinition;
+  invalidateDefinitionState(activeDefinition.id);
   const nextPostponeCount = activeBreakContext.occurrence.postponeCount + 1;
   const postponeLengthSeconds =
     activeDefinition.adaptiveSchedulingEnabled &&
