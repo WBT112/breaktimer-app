@@ -10,6 +10,7 @@ export enum IpcChannel {
   BreakStart = "BREAK_START",
   BreakWindowResize = "BREAK_WINDOW_RESIZE",
   BreakTrackingComplete = "BREAK_TRACKING_COMPLETE",
+  BreakStatisticsGet = "BREAK_STATISTICS_GET",
   Error = "ERROR",
   LocalDataReset = "LOCAL_DATA_RESET",
   SoundEndPlay = "SOUND_END_PLAY",

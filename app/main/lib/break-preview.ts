@@ -79,7 +79,10 @@ function getLatestCompletedEntry(
   let latestEntry: BreakCompletionHistoryEntry | null = null;
 
   for (const entry of Object.values(history)) {
-    if (entry.definitionId !== definitionId || entry.lastCompletedAtMs === null) {
+    if (
+      entry.definitionId !== definitionId ||
+      entry.lastCompletedAtMs === null
+    ) {
       continue;
     }
 
@@ -165,9 +168,14 @@ function getReasonForScheduledPreview(
   const intervalLabel = formatDelay(definition.intervalSeconds);
   const nextRunLabel = formatDateTime(nextRunAtMs, nowMs);
   const latestCompletedLabel =
-    latestCompletedAtMs !== null ? formatDateTime(latestCompletedAtMs, nowMs) : null;
+    latestCompletedAtMs !== null
+      ? formatDateTime(latestCompletedAtMs, nowMs)
+      : null;
 
-  if (queuedOccurrence?.source === "snoozed" && queuedOccurrence.dueAtMs >= nowMs) {
+  if (
+    queuedOccurrence?.source === "snoozed" &&
+    queuedOccurrence.dueAtMs >= nowMs
+  ) {
     return joinReasonLines(
       latestCompletedLabel
         ? `Letzter abgeschlossener Lauf war ${latestCompletedLabel}.`

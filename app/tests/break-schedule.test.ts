@@ -86,6 +86,7 @@ describe("break schedule", () => {
   it("keeps collision order stable for equally due occurrences", () => {
     const occurrences: ScheduledBreakOccurrence[] = [
       {
+        occurrenceId: "scheduled:break-1:0",
         breakDefinitionId: "break-1",
         dueAtMs: 1000,
         sequenceIndex: 0,
@@ -93,6 +94,7 @@ describe("break schedule", () => {
         source: "scheduled",
       },
       {
+        occurrenceId: "scheduled:break-2:0",
         breakDefinitionId: "break-2",
         dueAtMs: 1000,
         sequenceIndex: 0,
@@ -100,6 +102,7 @@ describe("break schedule", () => {
         source: "scheduled",
       },
       {
+        occurrenceId: "scheduled:break-3:1",
         breakDefinitionId: "break-3",
         dueAtMs: 2000,
         sequenceIndex: 1,

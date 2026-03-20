@@ -1,9 +1,14 @@
 import { ActiveBreakContext, BreakDefinitionPreview } from "../../types/breaks";
+import {
+  BreakStatisticsSnapshot,
+  StatisticsRangeKey,
+} from "../../types/statistics";
 import { BrowserWindow, ipcMain, IpcMainInvokeEvent, screen } from "electron";
 import log from "electron-log";
 import { IpcChannel } from "../../types/ipc";
 import { Settings, SoundType } from "../../types/settings";
 import { getBreakDefinitionPreviews } from "./break-preview";
+import { buildBreakStatisticsSnapshot } from "./break-statistics";
 import {
   completeBreakTracking,
   getActiveBreakContext,
@@ -18,6 +23,7 @@ import {
 import {
   getSettings,
   getBreakCompletionHistory,
+  getBreakEventLog,
   setSettings,
   getAppInitialized,
   setAppInitialized,
@@ -58,6 +64,18 @@ ipcMain.handle(
       Date.now(),
       getQueuedOccurrencesForPreview(),
     );
+  },
+);
+
+ipcMain.handle(
+  IpcChannel.BreakStatisticsGet,
+  (
+    _event: IpcMainInvokeEvent,
+    settings: Settings,
+    rangeKey: StatisticsRangeKey,
+  ): BreakStatisticsSnapshot => {
+    log.info(IpcChannel.BreakStatisticsGet);
+    return buildBreakStatisticsSnapshot(settings, getBreakEventLog(), rangeKey);
   },
 );
 

@@ -2,7 +2,11 @@ import { Button } from "@/components/ui/button";
 import { motion } from "framer-motion";
 import moment from "moment";
 import { useEffect, useState } from "react";
-import { formatTimeSinceLastBreak } from "./utils";
+import {
+  BreakNotificationPhase,
+  formatTimeSinceLastBreak,
+  getBreakNotificationPhase,
+} from "./utils";
 
 const GRACE_PERIOD_MS = 60000;
 const TOTAL_COUNTDOWN_MS = 120000;
@@ -14,6 +18,7 @@ interface BreakNotificationProps {
   onPostponeBreak: () => void;
   onSkipBreak: () => void;
   onStartBreakNow: () => void;
+  autoStartBreaksAfterCountdown: boolean;
   postponeBreakEnabled: boolean;
   skipBreakEnabled: boolean;
   timeSinceLastBreak: number | null;
@@ -28,13 +33,14 @@ export function BreakNotification({
   onPostponeBreak,
   onSkipBreak,
   onStartBreakNow,
+  autoStartBreaksAfterCountdown,
   postponeBreakEnabled,
   skipBreakEnabled,
   timeSinceLastBreak,
   textColor,
   backgroundColor,
 }: BreakNotificationProps) {
-  const [phase, setPhase] = useState<"grace" | "countdown">("grace");
+  const [phase, setPhase] = useState<BreakNotificationPhase>("grace");
   const [msRemaining, setMsRemaining] = useState<number>(0);
 
   useEffect(() => {
@@ -44,14 +50,22 @@ export function BreakNotification({
     const tick = () => {
       const now = moment();
       const elapsedMs = now.diff(startTime, "milliseconds");
+      const nextState = getBreakNotificationPhase(
+        elapsedMs,
+        autoStartBreaksAfterCountdown,
+        GRACE_PERIOD_MS,
+        TOTAL_COUNTDOWN_MS,
+      );
 
-      if (elapsedMs < GRACE_PERIOD_MS) {
-        setPhase("grace");
-      } else if (elapsedMs < TOTAL_COUNTDOWN_MS) {
-        setPhase("countdown");
-        setMsRemaining(TOTAL_COUNTDOWN_MS - elapsedMs);
-      } else {
+      setPhase(nextState.phase);
+      setMsRemaining(nextState.msRemaining);
+
+      if (nextState.shouldAutoStart) {
         onCountdownOver();
+        return;
+      }
+
+      if (nextState.phase === "ready") {
         return;
       }
 
@@ -65,7 +79,7 @@ export function BreakNotification({
         clearTimeout(timeoutId);
       }
     };
-  }, [onCountdownOver]);
+  }, [autoStartBreaksAfterCountdown, onCountdownOver]);
 
   const secondsRemaining = Math.ceil(msRemaining / 1000);
   const countdownDurationMs = TOTAL_COUNTDOWN_MS - GRACE_PERIOD_MS;
@@ -118,7 +132,9 @@ export function BreakNotification({
           >
             {phase === "grace"
               ? "Starte deine Pause, sobald du bereit bist ..."
-              : `Pause startet in ${secondsRemaining}s ...`}
+              : phase === "countdown"
+                ? `Pause startet in ${secondsRemaining}s ...`
+                : "Pause wartet auf deinen aktiven Start."}
           </p>
           {timeSinceLastBreak !== null && (
             <p

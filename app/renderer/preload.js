@@ -18,6 +18,9 @@ process.once("loaded", () => {
     invokeGetBreakDefinitionPreviews: (settings) => {
       return ipcRenderer.invoke("BREAK_DEFINITION_PREVIEWS_GET", settings);
     },
+    invokeGetBreakStatistics: (settings, rangeKey) => {
+      return ipcRenderer.invoke("BREAK_STATISTICS_GET", settings, rangeKey);
+    },
     invokeBreakPostpone: (action) => {
       return ipcRenderer.invoke("BREAK_POSTPONE", action);
     },

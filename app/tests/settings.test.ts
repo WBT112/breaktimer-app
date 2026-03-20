@@ -59,4 +59,9 @@ describe("settings helpers", () => {
     );
     expect(breakDefinition.textColor).toBe(defaultSettings.textColor);
   });
+
+  it("keeps automatic start after countdown enabled and manual end disabled by default", () => {
+    expect(defaultSettings.autoStartBreaksAfterCountdown).toBe(true);
+    expect(defaultSettings.manualBreakEndRequired).toBe(false);
+  });
 });

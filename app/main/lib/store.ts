@@ -1,5 +1,6 @@
 import Store from "electron-store";
 import { BreakCompletionHistory } from "../../types/breaks";
+import { BreakEventLogEntry } from "../../types/statistics";
 import {
   defaultSettings,
   normalizeSettings,
@@ -7,6 +8,7 @@ import {
 } from "../../types/settings";
 import { setAutoLauch } from "./auto-launch";
 import { initBreaks, resetTimeSinceLastBreak } from "./breaks";
+import { pruneBreakEventLog } from "./break-statistics";
 import { migrateSettingsObject } from "./settings-migrations";
 
 const store = new Store({
@@ -16,6 +18,7 @@ const store = new Store({
     settingsVersion: 4,
     disableEndTime: null,
     breakCompletionHistory: {},
+    breakEventLog: [],
   },
 });
 
@@ -86,6 +89,22 @@ export function setBreakCompletionHistory(
   breakCompletionHistory: BreakCompletionHistory,
 ): void {
   store.set("breakCompletionHistory", breakCompletionHistory);
+}
+
+export function getBreakEventLog(): BreakEventLogEntry[] {
+  const breakEventLog =
+    (store.get("breakEventLog") as BreakEventLogEntry[]) ?? [];
+  const prunedEventLog = pruneBreakEventLog(breakEventLog);
+
+  if (prunedEventLog.length !== breakEventLog.length) {
+    store.set("breakEventLog", prunedEventLog);
+  }
+
+  return prunedEventLog;
+}
+
+export function appendBreakEventLog(entry: BreakEventLogEntry): void {
+  store.set("breakEventLog", [...getBreakEventLog(), entry]);
 }
 
 export function resetLocalData(): void {

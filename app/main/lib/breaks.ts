@@ -6,6 +6,7 @@ import {
   BreakTime,
   ScheduledBreakOccurrence,
 } from "../../types/breaks";
+import { BreakEventLogEntry } from "../../types/statistics";
 import { IpcChannel } from "../../types/ipc";
 import {
   BreakDefinition,
@@ -30,10 +31,16 @@ import {
 import { sendIpc } from "./ipc";
 import { showNotification } from "./notifications";
 import {
+  appendBreakEventLog,
   getBreakCompletionHistory,
   getSettings,
   setBreakCompletionHistory,
 } from "./store";
+import {
+  createBreakEventLogEntry,
+  createManualOccurrenceId,
+  createScheduledOccurrenceId,
+} from "./break-statistics";
 import { buildTray } from "./tray";
 import { createBreakWindows } from "./windows";
 import {
@@ -56,6 +63,10 @@ function zeroPad(value: number): string {
 
 function getEnabledBreakDefinitions(settings: Settings): BreakDefinition[] {
   return settings.breakDefinitions.filter((definition) => definition.enabled);
+}
+
+function logBreakEvent(entry: BreakEventLogEntry): void {
+  appendBreakEventLog(entry);
 }
 
 function sortDueQueue(): void {
@@ -200,7 +211,10 @@ export function getQueuedOccurrencesForPreview(): Record<
     const existingOccurrence =
       queuedOccurrencesByDefinition[occurrence.breakDefinitionId];
 
-    if (!existingOccurrence || occurrence.dueAtMs < existingOccurrence.dueAtMs) {
+    if (
+      !existingOccurrence ||
+      occurrence.dueAtMs < existingOccurrence.dueAtMs
+    ) {
       queuedOccurrencesByDefinition[occurrence.breakDefinitionId] = occurrence;
     }
   }
@@ -240,6 +254,13 @@ export function resetTimeSinceLastBreak(context: string): void {
 
 function markBreakCompleted(context: string): void {
   if (activeBreakContext) {
+    logBreakEvent(
+      createBreakEventLogEntry(
+        activeBreakContext.occurrence,
+        "completed",
+        Date.now(),
+      ),
+    );
     setBreakCompletionHistory(
       recordCompletedBreak(
         getBreakCompletionHistory(),
@@ -303,6 +324,11 @@ function getNextOccurrenceCandidate(): ScheduledBreakOccurrence | null {
 
     if (!scheduledOccurrence || dueAtMs < scheduledOccurrence.dueAtMs) {
       scheduledOccurrence = {
+        occurrenceId: createScheduledOccurrenceId(
+          definition.id,
+          state.dayStartMs,
+          state.nextIndex,
+        ),
         breakDefinitionId: definition.id,
         dueAtMs,
         sequenceIndex: state?.nextIndex ?? null,
@@ -341,6 +367,11 @@ function getNextDisplayOccurrenceCandidate(): ScheduledBreakOccurrence | null {
         ) &&
         canOccurrenceRunInWorkingHours(
           {
+            occurrenceId: createScheduledOccurrenceId(
+              definition.id,
+              getDayStartMs(occurrenceTimeMs),
+              null,
+            ),
             breakDefinitionId: definition.id,
             dueAtMs: occurrenceTimeMs,
             sequenceIndex: null,
@@ -357,6 +388,11 @@ function getNextDisplayOccurrenceCandidate(): ScheduledBreakOccurrence | null {
 
     if (!scheduledOccurrence || dueAtMs < scheduledOccurrence.dueAtMs) {
       scheduledOccurrence = {
+        occurrenceId: createScheduledOccurrenceId(
+          definition.id,
+          getDayStartMs(dueAtMs),
+          null,
+        ),
         breakDefinitionId: definition.id,
         dueAtMs,
         sequenceIndex: null,
@@ -474,6 +510,7 @@ function startBreakForOccurrence(occurrence: ScheduledBreakOccurrence): void {
     occurrence,
   };
   havingBreak = true;
+  logBreakEvent(createBreakEventLogEntry(occurrence, "started", Date.now()));
 
   log.info(
     `Break started [definition=${definition.id}] [type=${definition.notificationType}] [source=${occurrence.source}]`,
@@ -542,6 +579,11 @@ function applyIdleResets(nowMs: number, settings: Settings): boolean {
       nextDueAtMs <= nowMs &&
       canOccurrenceRunInWorkingHours(
         {
+          occurrenceId: createScheduledOccurrenceId(
+            definition.id,
+            state.dayStartMs,
+            state.nextIndex,
+          ),
           breakDefinitionId: definition.id,
           dueAtMs: nextDueAtMs,
           sequenceIndex: state.nextIndex,
@@ -551,6 +593,24 @@ function applyIdleResets(nowMs: number, settings: Settings): boolean {
         settings,
       )
     ) {
+      logBreakEvent(
+        createBreakEventLogEntry(
+          {
+            occurrenceId: createScheduledOccurrenceId(
+              definition.id,
+              state.dayStartMs,
+              state.nextIndex,
+            ),
+            breakDefinitionId: definition.id,
+            dueAtMs: nextDueAtMs,
+            sequenceIndex: state.nextIndex,
+            postponeCount: 0,
+            source: "scheduled",
+          },
+          "idle_reset",
+          nowMs,
+        ),
+      );
       setDefinitionState(deferStateForIdle(state));
     }
 
@@ -598,6 +658,11 @@ function enqueueDueScheduledOccurrences(
       }
 
       const occurrence: ScheduledBreakOccurrence = {
+        occurrenceId: createScheduledOccurrenceId(
+          definition.id,
+          state.dayStartMs,
+          state.nextIndex,
+        ),
         breakDefinitionId: definition.id,
         dueAtMs,
         sequenceIndex: state.nextIndex,
@@ -615,6 +680,9 @@ function enqueueDueScheduledOccurrences(
         break;
       }
 
+      logBreakEvent(
+        createBreakEventLogEntry(occurrence, "due", occurrence.dueAtMs),
+      );
       queueOccurrence({
         ...occurrence,
         dueAtMs: parallelBreaksEnabled ? dueAtMs : nowMs,
@@ -677,12 +745,31 @@ export function postponeBreak(action = "snoozed"): void {
   );
 
   if (action !== "skipped") {
+    logBreakEvent(
+      createBreakEventLogEntry(
+        {
+          ...activeBreakContext.occurrence,
+          postponeCount: nextPostponeCount,
+          source: "snoozed",
+        },
+        "postponed",
+        Date.now(),
+      ),
+    );
     queueOccurrence({
       ...activeBreakContext.occurrence,
       dueAtMs: Date.now() + activeDefinition.postponeLengthSeconds * 1000,
       postponeCount: nextPostponeCount,
       source: "snoozed",
     });
+  } else {
+    logBreakEvent(
+      createBreakEventLogEntry(
+        activeBreakContext.occurrence,
+        "skipped",
+        Date.now(),
+      ),
+    );
   }
 
   activeBreakContext = null;
@@ -704,6 +791,10 @@ export function startBreakNow(): void {
     nextPlannedOccurrence ??
     (fallbackDefinition
       ? {
+          occurrenceId: createManualOccurrenceId(
+            fallbackDefinition.id,
+            Date.now(),
+          ),
           breakDefinitionId: fallbackDefinition.id,
           dueAtMs: Date.now(),
           sequenceIndex: null,
@@ -717,11 +808,15 @@ export function startBreakNow(): void {
   }
 
   startedFromTray = true;
-  startBreakForOccurrence({
+  const manualOccurrence: ScheduledBreakOccurrence = {
     ...occurrence,
     dueAtMs: Date.now(),
     source: "manual",
-  });
+  };
+  logBreakEvent(
+    createBreakEventLogEntry(manualOccurrence, "manual_started", Date.now()),
+  );
+  startBreakForOccurrence(manualOccurrence);
 }
 
 export function wasStartedFromTray(): boolean {

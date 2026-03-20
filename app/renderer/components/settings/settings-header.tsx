@@ -26,10 +26,11 @@ export default function SettingsHeader(props: Props) {
       <div className="px-4 pb-4">
         <TabsList
           className={`grid w-full ${
-            processEnv.SNAP === undefined ? "grid-cols-4" : "grid-cols-3"
+            processEnv.SNAP === undefined ? "grid-cols-5" : "grid-cols-4"
           }`}
         >
           <TabsTrigger value="break-settings">Allgemein</TabsTrigger>
+          <TabsTrigger value="statistics">Statistik</TabsTrigger>
           <TabsTrigger value="working-hours">Arbeitszeiten</TabsTrigger>
           <TabsTrigger value="customization">Anpassung</TabsTrigger>
           {processEnv.SNAP === undefined && (

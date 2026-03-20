@@ -8,9 +8,7 @@ import {
   Settings,
 } from "../types/settings";
 
-function createSettings(
-  overrides: Partial<Settings> = {},
-) {
+function createSettings(overrides: Partial<Settings> = {}) {
   const settings: Settings = {
     ...defaultSettings,
     breakDefinitions: [createDefaultBreakDefinition("break-1")],
@@ -60,7 +58,9 @@ describe("break preview", () => {
     expect(previews[0].nextRunAtMs).toBe(
       new Date(2026, 2, 20, 10, 0).getTime(),
     );
-    expect(previews[0].reason).toContain("Startzeit 08:00, Intervall 2 Stunden.");
+    expect(previews[0].reason).toContain(
+      "Startzeit 08:00, Intervall 2 Stunden.",
+    );
     expect(previews[0].reason).toContain("Nächster Lauf ist heute um 10:00.");
   });
 
@@ -116,6 +116,7 @@ describe("break preview", () => {
       new Date(2026, 2, 20, 9, 30).getTime(),
       {
         "break-1": {
+          occurrenceId: "scheduled:break-1:176",
           breakDefinitionId: "break-1",
           dueAtMs: new Date(2026, 2, 20, 9, 45).getTime(),
           sequenceIndex: 1,

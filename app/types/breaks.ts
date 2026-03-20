@@ -6,6 +6,7 @@ export type BreakTime = Moment | null;
 export type BreakOccurrenceSource = "scheduled" | "snoozed" | "manual";
 
 export interface ScheduledBreakOccurrence {
+  occurrenceId: string;
   breakDefinitionId: string;
   dueAtMs: number;
   sequenceIndex: number | null;

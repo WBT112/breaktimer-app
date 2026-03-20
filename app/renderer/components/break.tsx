@@ -186,6 +186,9 @@ export default function Break() {
               onPostponeBreak={handlePostponeBreak}
               onSkipBreak={handleSkipBreak}
               onStartBreakNow={handleStartBreakNow}
+              autoStartBreaksAfterCountdown={
+                settings.autoStartBreaksAfterCountdown
+              }
               postponeBreakEnabled={
                 settings.postponeBreakEnabled &&
                 allowPostpone &&
@@ -243,6 +246,7 @@ export default function Break() {
             breakDefinition={activeBreak.breakDefinition}
             breakLengthSeconds={activeBreak.breakDefinition.breakLengthSeconds}
             endBreakEnabled={settings.endBreakEnabled}
+            manualBreakEndRequired={settings.manualBreakEndRequired}
             onEndBreak={handleEndBreak}
             textColor={activeTextColor}
             isClosing={closing}

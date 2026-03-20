@@ -70,6 +70,8 @@ export interface Settings {
   skipBreakEnabled: boolean;
   postponeBreakEnabled: boolean;
   immediatelyStartBreaks: boolean;
+  autoStartBreaksAfterCountdown: boolean;
+  manualBreakEndRequired: boolean;
   parallelBreaksEnabled: boolean;
 }
 
@@ -170,6 +172,8 @@ export const defaultSettings: Settings = {
   skipBreakEnabled: false,
   postponeBreakEnabled: true,
   immediatelyStartBreaks: false,
+  autoStartBreaksAfterCountdown: true,
+  manualBreakEndRequired: false,
   parallelBreaksEnabled: false,
 };
 

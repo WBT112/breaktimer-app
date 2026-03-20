@@ -34,12 +34,34 @@ export default function AdvancedCard({
 
         <div className="flex items-center space-x-2">
           <Switch
+            checked={settingsDraft.autoStartBreaksAfterCountdown}
+            onCheckedChange={(checked) =>
+              onSwitchChange("autoStartBreaksAfterCountdown", checked)
+            }
+            disabled={!hasPopupBreaks || settingsDraft.immediatelyStartBreaks}
+          />
+          <Label>Nach Hinweis automatisch starten</Label>
+        </div>
+
+        <div className="flex items-center space-x-2">
+          <Switch
             checked={settingsDraft.endBreakEnabled}
             onCheckedChange={(checked) =>
               onSwitchChange("endBreakEnabled", checked)
             }
           />
           <Label>Vorzeitiges Beenden erlauben</Label>
+        </div>
+
+        <div className="flex items-center space-x-2">
+          <Switch
+            checked={settingsDraft.manualBreakEndRequired}
+            onCheckedChange={(checked) =>
+              onSwitchChange("manualBreakEndRequired", checked)
+            }
+            disabled={!hasPopupBreaks}
+          />
+          <Label>Pause aktiv beenden</Label>
         </div>
 
         <div className="flex items-center space-x-2">

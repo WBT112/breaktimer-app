@@ -2,6 +2,10 @@ import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { useEffect, useMemo, useState } from "react";
 import { BreakDefinitionPreview } from "../../types/breaks";
 import {
+  BreakStatisticsSnapshot,
+  StatisticsRangeKey,
+} from "../../types/statistics";
+import {
   BreakDefinition,
   normalizeSettings,
   Settings,
@@ -17,6 +21,7 @@ import SkipCard from "./settings/skip-card";
 import SmartBreaksCard from "./settings/smart-breaks-card";
 import SnoozeCard from "./settings/snooze-card";
 import StartupCard from "./settings/startup-card";
+import StatisticsCard from "./settings/statistics-card";
 import ThemeCard from "./settings/theme-card";
 import TroubleshootingCard from "./settings/troubleshooting-card";
 import TrayCard from "./settings/tray-card";
@@ -29,6 +34,10 @@ export default function SettingsEl() {
   const [breakPreviews, setBreakPreviews] = useState<BreakDefinitionPreview[]>(
     [],
   );
+  const [statisticsRange, setStatisticsRange] =
+    useState<StatisticsRangeKey>("30d");
+  const [statisticsSnapshot, setStatisticsSnapshot] =
+    useState<BreakStatisticsSnapshot | null>(null);
   const [showWelcomeModal, setShowWelcomeModal] = useState(false);
 
   const loadSettings = async () => {
@@ -54,19 +63,21 @@ export default function SettingsEl() {
     let cancelled = false;
 
     (async () => {
-      const previews = (await ipcRenderer.invokeGetBreakDefinitionPreviews(
-        settingsDraft,
-      )) as BreakDefinitionPreview[];
+      const [previews, statistics] = await Promise.all([
+        ipcRenderer.invokeGetBreakDefinitionPreviews(settingsDraft),
+        ipcRenderer.invokeGetBreakStatistics(settingsDraft, statisticsRange),
+      ]);
 
       if (!cancelled) {
-        setBreakPreviews(previews);
+        setBreakPreviews(previews as BreakDefinitionPreview[]);
+        setStatisticsSnapshot(statistics as BreakStatisticsSnapshot);
       }
     })();
 
     return () => {
       cancelled = true;
     };
-  }, [settingsDraft]);
+  }, [settingsDraft, statisticsRange]);
 
   const dirty = useMemo(() => {
     return JSON.stringify(settingsDraft) !== JSON.stringify(settings);
@@ -212,6 +223,14 @@ export default function SettingsEl() {
             <AdvancedCard
               settingsDraft={settingsDraft}
               onSwitchChange={handleSwitchChange}
+            />
+          </TabsContent>
+
+          <TabsContent value="statistics" className="m-0 space-y-6">
+            <StatisticsCard
+              snapshot={statisticsSnapshot}
+              selectedRange={statisticsRange}
+              onRangeChange={setStatisticsRange}
             />
           </TabsContent>
 

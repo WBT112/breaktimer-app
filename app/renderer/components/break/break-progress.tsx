@@ -3,12 +3,13 @@ import { motion } from "framer-motion";
 import moment from "moment";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { BreakDefinition, SoundType } from "../../../types/settings";
-import { TimeRemaining } from "./utils";
+import { shouldShowEndBreakButton, TimeRemaining } from "./utils";
 
 interface BreakProgressProps {
   breakDefinition: BreakDefinition;
   breakLengthSeconds: number;
   endBreakEnabled: boolean;
+  manualBreakEndRequired: boolean;
   onEndBreak: () => void;
   textColor: string;
   isClosing?: boolean;
@@ -19,6 +20,7 @@ export function BreakProgress({
   breakDefinition,
   breakLengthSeconds,
   endBreakEnabled,
+  manualBreakEndRequired,
   onEndBreak,
   textColor,
   isClosing = false,
@@ -28,6 +30,7 @@ export function BreakProgress({
     null,
   );
   const [progress, setProgress] = useState<number | null>(null);
+  const [hasReachedBreakTarget, setHasReachedBreakTarget] = useState(false);
   const [breakStartTime] = useState(new Date());
   const soundPlayedRef = useRef(false);
   const isClosingRef = useRef(isClosing);
@@ -71,8 +74,9 @@ export function BreakProgress({
 
       const tick = () => {
         const now = moment();
+        const msUntilTarget = moment(breakEndTime).diff(now, "milliseconds");
 
-        if (now > moment(breakEndTime)) {
+        if (!manualBreakEndRequired && msUntilTarget <= 0) {
           // Always track break completion, regardless of which window triggers it
           const breakDurationMs =
             new Date().getTime() - breakStartTime.getTime();
@@ -82,12 +86,21 @@ export function BreakProgress({
           return;
         }
 
-        const msRemaining = moment(breakEndTime).diff(now, "milliseconds");
-        setProgress(1 - msRemaining / startMsRemaining);
+        const displayMs =
+          manualBreakEndRequired && msUntilTarget <= 0
+            ? Math.abs(msUntilTarget)
+            : msUntilTarget;
+
+        setHasReachedBreakTarget(msUntilTarget <= 0);
+        setProgress(
+          msUntilTarget <= 0
+            ? 1
+            : Math.min(1, 1 - msUntilTarget / startMsRemaining),
+        );
         setTimeRemaining({
-          hours: Math.floor(msRemaining / 1000 / 3600),
-          minutes: Math.floor(msRemaining / 1000 / 60),
-          seconds: (msRemaining / 1000) % 60,
+          hours: Math.floor(displayMs / 1000 / 3600),
+          minutes: Math.floor(displayMs / 1000 / 60),
+          seconds: (displayMs / 1000) % 60,
         });
 
         if (!isClosingRef.current) {
@@ -107,6 +120,7 @@ export function BreakProgress({
     onEndBreak,
     breakDefinition,
     breakLengthSeconds,
+    manualBreakEndRequired,
     breakStartTime,
     isPrimaryWindow,
     sharedBreakEndTime,
@@ -123,6 +137,11 @@ export function BreakProgress({
   }
 
   const progressPercentage = (progress || 0) * 100;
+  const showEndBreakButton = shouldShowEndBreakButton(
+    endBreakEnabled,
+    manualBreakEndRequired,
+    hasReachedBreakTarget,
+  );
 
   return (
     <motion.div
@@ -137,7 +156,7 @@ export function BreakProgress({
         >
           {breakDefinition.breakTitle}
         </h1>
-        {endBreakEnabled && (
+        {showEndBreakButton && (
           <Button
             className="!bg-transparent hover:!bg-black/10 active:!bg-black/20 border-white/20"
             onClick={onEndBreak}
@@ -147,7 +166,9 @@ export function BreakProgress({
               borderColor: "rgba(255, 255, 255, 0.2)",
             }}
           >
-            {progress < 0.5 ? "Pause abbrechen" : "Pause beenden"}
+            {hasReachedBreakTarget || progress >= 0.5
+              ? "Pause beenden"
+              : "Pause abbrechen"}
           </Button>
         )}
       </div>
@@ -166,6 +187,9 @@ export function BreakProgress({
             className="text-sm font-medium opacity-60 flex-shrink-0 tabular-nums flex items-center gap-0.5"
             style={{ color: textColor }}
           >
+            {hasReachedBreakTarget && manualBreakEndRequired && (
+              <span style={{ color: textColor }}>+</span>
+            )}
             <span style={{ color: textColor }}>
               {String(
                 Math.floor(timeRemaining.hours * 60 + timeRemaining.minutes),
@@ -177,6 +201,15 @@ export function BreakProgress({
             </span>
           </div>
         </div>
+        {hasReachedBreakTarget && manualBreakEndRequired && (
+          <div
+            className="text-sm opacity-80 font-medium mb-2"
+            style={{ color: textColor }}
+          >
+            Zielzeit erreicht. Die Pause laeuft weiter, bis du sie aktiv
+            beendest.
+          </div>
+        )}
         <div
           className="w-full h-2 rounded-full overflow-hidden"
           style={{ backgroundColor: "rgba(255, 255, 255, 0.2)" }}

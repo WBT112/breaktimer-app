@@ -32,3 +32,46 @@ export interface TimeRemaining {
   minutes: number;
   seconds: number;
 }
+
+export type BreakNotificationPhase = "grace" | "countdown" | "ready";
+
+export function getBreakNotificationPhase(
+  elapsedMs: number,
+  autoStartBreaksAfterCountdown: boolean,
+  gracePeriodMs: number,
+  totalCountdownMs: number,
+): {
+  phase: BreakNotificationPhase;
+  msRemaining: number;
+  shouldAutoStart: boolean;
+} {
+  if (elapsedMs < gracePeriodMs) {
+    return {
+      phase: "grace",
+      msRemaining: totalCountdownMs - gracePeriodMs,
+      shouldAutoStart: false,
+    };
+  }
+
+  if (elapsedMs < totalCountdownMs) {
+    return {
+      phase: "countdown",
+      msRemaining: totalCountdownMs - elapsedMs,
+      shouldAutoStart: false,
+    };
+  }
+
+  return {
+    phase: autoStartBreaksAfterCountdown ? "countdown" : "ready",
+    msRemaining: 0,
+    shouldAutoStart: autoStartBreaksAfterCountdown,
+  };
+}
+
+export function shouldShowEndBreakButton(
+  endBreakEnabled: boolean,
+  manualBreakEndRequired: boolean,
+  hasReachedBreakTarget: boolean,
+): boolean {
+  return endBreakEnabled || (manualBreakEndRequired && hasReachedBreakTarget);
+}
