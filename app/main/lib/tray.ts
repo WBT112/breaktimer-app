@@ -7,6 +7,7 @@ import { TrayTextMode } from "../../types/settings";
 import {
   checkIdle,
   checkInWorkingHours,
+  getNextBreakDefinition,
   getBreakTime,
   getTimeSinceLastCompletedBreak,
   isHavingBreak,
@@ -18,6 +19,7 @@ import {
   setDisableEndTime,
   setSettings,
 } from "./store";
+import { formatNextBreakLabel } from "./tray-utils";
 import { closeBreakWindows, createSettingsWindow } from "./windows";
 
 let tray: Tray;
@@ -188,6 +190,7 @@ export function buildTray(): void {
   };
 
   const breakTime = getBreakTime();
+  const nextBreakDefinition = getNextBreakDefinition();
   const inWorkingHours = checkInWorkingHours();
   const idle = checkIdle();
   const havingBreak = isHavingBreak();
@@ -196,13 +199,8 @@ export function buildTray(): void {
   let nextBreak = "";
 
   if (minsLeft !== undefined) {
-    if (minsLeft > 1) {
-      nextBreak = `Nächste Pause in ${minsLeft} Minuten`;
-    } else if (minsLeft === 1) {
-      nextBreak = "Nächste Pause in 1 Minute";
-    } else {
-      nextBreak = "Nächste Pause in weniger als einer Minute";
-    }
+    const title = nextBreakDefinition?.breakTitle.trim() || null;
+    nextBreak = formatNextBreakLabel(minsLeft, title);
   }
 
   const disableEndTime = getDisableEndTime();

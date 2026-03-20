@@ -309,6 +309,21 @@ export function getBreakTime(): BreakTime {
   return nextOccurrence ? moment(nextOccurrence.dueAtMs) : null;
 }
 
+export function getNextBreakDefinition(): BreakDefinition | null {
+  const nextOccurrence = getNextDisplayOccurrenceCandidate();
+
+  if (!nextOccurrence) {
+    return null;
+  }
+
+  const settings = getSettings();
+  return (
+    settings.breakDefinitions.find(
+      (definition) => definition.id === nextOccurrence.breakDefinitionId,
+    ) ?? null
+  );
+}
+
 export function getQueuedOccurrencesForPreview(): Record<
   string,
   ScheduledBreakOccurrence
