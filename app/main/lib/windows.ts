@@ -2,6 +2,10 @@ import { app, BrowserWindow, screen } from "electron";
 import log from "electron-log";
 import path from "path";
 import { endPopupBreak } from "./breaks";
+import {
+  isInteractiveBreakWindow,
+  orderBreakDisplays,
+} from "./break-window-placement";
 import { getSettings } from "./store";
 
 let settingsWindow: BrowserWindow | null = null;
@@ -107,10 +111,14 @@ export function createBreakWindows(): void {
   const notificationWidth =
     450 + (buttonCount - 1) * 50 + (buttonCount === 3 ? 20 : 0);
 
-  const displays = screen.getAllDisplays();
+  const displays = orderBreakDisplays(
+    screen.getAllDisplays(),
+    screen.getCursorScreenPoint(),
+  );
   for (let windowIndex = 0; windowIndex < displays.length; windowIndex++) {
     const display = displays[windowIndex];
     const notificationHeight = 80;
+    const interactiveWindow = isInteractiveBreakWindow(windowIndex);
     const breakWindow = new BrowserWindow({
       show: false,
       autoHideMenuBar: true,
@@ -120,9 +128,10 @@ export function createBreakWindows(): void {
       width: notificationWidth,
       height: notificationHeight,
       resizable: false,
-      focusable: false,
+      focusable: interactiveWindow,
       transparent: true,
       hasShadow: false,
+      skipTaskbar: true,
       webPreferences: {
         devTools: true,
         preload: path.join(__dirname, "../../renderer/preload.js"),
@@ -130,7 +139,11 @@ export function createBreakWindows(): void {
     });
 
     breakWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
-    breakWindow.setAlwaysOnTop(true);
+    if (interactiveWindow) {
+      breakWindow.setAlwaysOnTop(true, "screen-saver");
+    } else {
+      breakWindow.setAlwaysOnTop(true);
+    }
     breakWindow.setFullScreenable(false);
     breakWindow.moveTop();
 
@@ -147,8 +160,12 @@ export function createBreakWindows(): void {
         throw new Error('"breakWindow" is not defined');
       }
 
-      // Show as inactive to avoid stealing focus
-      breakWindow.showInactive();
+      if (interactiveWindow) {
+        breakWindow.show();
+        breakWindow.focus();
+      } else {
+        breakWindow.showInactive();
+      }
     });
 
     breakWindow.on("closed", () => {
