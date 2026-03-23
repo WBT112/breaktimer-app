@@ -40,6 +40,7 @@ export default function SettingsEl() {
   const [statisticsSnapshot, setStatisticsSnapshot] =
     useState<BreakStatisticsSnapshot | null>(null);
   const [showWelcomeModal, setShowWelcomeModal] = useState(false);
+  const [liveRefreshTick, setLiveRefreshTick] = useState(0);
 
   const loadSettings = async () => {
     const settings = (await ipcRenderer.invokeGetSettings()) as Settings;
@@ -78,7 +79,17 @@ export default function SettingsEl() {
     return () => {
       cancelled = true;
     };
-  }, [settingsDraft, statisticsRange]);
+  }, [settingsDraft, statisticsRange, liveRefreshTick]);
+
+  useEffect(() => {
+    const intervalId = window.setInterval(() => {
+      setLiveRefreshTick((tick) => tick + 1);
+    }, 15_000);
+
+    return () => {
+      window.clearInterval(intervalId);
+    };
+  }, []);
 
   const dirty = useMemo(() => {
     return JSON.stringify(settingsDraft) !== JSON.stringify(settings);

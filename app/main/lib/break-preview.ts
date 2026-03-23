@@ -379,8 +379,8 @@ export function getBreakDefinitionPreviews(
         )
       : null;
     const rawNextRunAtMs =
-      queuedOccurrence?.dueAtMs && queuedOccurrence.dueAtMs >= nowMs
-        ? queuedOccurrence.dueAtMs
+      queuedOccurrence !== null
+        ? Math.max(queuedOccurrence.dueAtMs, nowMs)
         : (adaptiveState?.occurrencesMs[0] ??
           findNextOccurrenceAfter(
             definition,

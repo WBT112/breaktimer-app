@@ -1,3 +1,5 @@
+import { ScheduledBreakOccurrence } from "../../types/breaks";
+
 export function getEarliestAllowedBreakStartMs(
   minimumBreakGapSeconds: number,
   lastBreakGapAtMs: number | null,
@@ -26,4 +28,19 @@ export function applyMinimumBreakGap(
   }
 
   return Math.max(dueAtMs, earliestAllowedStartMs);
+}
+
+export function rescheduleQueuedOccurrencesForMinimumGap(
+  occurrences: ScheduledBreakOccurrence[],
+  minimumBreakGapSeconds: number,
+  lastBreakGapAtMs: number | null,
+): ScheduledBreakOccurrence[] {
+  return occurrences.map((occurrence) => ({
+    ...occurrence,
+    dueAtMs: applyMinimumBreakGap(
+      occurrence.dueAtMs,
+      minimumBreakGapSeconds,
+      lastBreakGapAtMs,
+    ),
+  }));
 }

@@ -35,6 +35,7 @@ import {
 import {
   applyMinimumBreakGap,
   getEarliestAllowedBreakStartMs,
+  rescheduleQueuedOccurrencesForMinimumGap,
 } from "./break-gap";
 import { sendIpc } from "./ipc";
 import { showNotification } from "./notifications";
@@ -400,6 +401,12 @@ export function resetTimeSinceLastBreak(
   lastCompletedBreakTime = new Date();
   if (affectMinimumGap) {
     lastBreakGapTime = new Date();
+    dueQueue = rescheduleQueuedOccurrencesForMinimumGap(
+      dueQueue,
+      getSettings().minimumBreakGapSeconds,
+      getLastBreakGapAtMs(),
+    );
+    sortDueQueue();
   }
   log.info(context);
   buildTray();

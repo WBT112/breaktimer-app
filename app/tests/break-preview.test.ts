@@ -196,6 +196,25 @@ describe("break preview", () => {
     );
   });
 
+  it("treats overdue queued occurrences as due now instead of showing a past timestamp", () => {
+    const { settings, history } = createSettings();
+    const nowMs = new Date(2026, 2, 20, 11, 54).getTime();
+
+    const previews = getBreakDefinitionPreviews(settings, history, nowMs, {
+      "break-1": {
+        occurrenceId: "scheduled:break-1:due",
+        breakDefinitionId: "break-1",
+        dueAtMs: new Date(2026, 2, 20, 11, 19).getTime(),
+        sequenceIndex: 2,
+        postponeCount: 0,
+        source: "scheduled",
+      },
+    });
+
+    expect(previews[0].nextRunAtMs).toBe(nowMs);
+    expect(previews[0].reason).toContain("Diese Pause ist jetzt fällig.");
+  });
+
   it("explains adaptive tightening and the current adaptive spacing", () => {
     const { settings, history } = createSettings({
       breakDefinitions: [
