@@ -23,6 +23,10 @@ import {
   getCompletedCountForDay,
   hasRemainingDailyCapacity,
 } from "./break-progress";
+import {
+  applyMinimumBreakGap,
+  getEarliestAllowedBreakStartMs,
+} from "./break-gap";
 
 function formatTime(seconds: number): string {
   const hours = Math.floor(seconds / 3600);
@@ -145,6 +149,8 @@ function getReasonForScheduledPreview(
   history: BreakCompletionHistory,
   nowMs: number,
   nextRunAtMs: number,
+  rawNextRunAtMs: number,
+  lastBreakGapAtMs: number | null,
   queuedOccurrence: ScheduledBreakOccurrence | null,
   adaptiveDetails: {
     adaptiveStatus: "fixed" | "adaptive" | "unreachable";
@@ -192,6 +198,12 @@ function getReasonForScheduledPreview(
       ? formatDateTime(latestCompletedAtMs, nowMs)
       : null;
   const gentleStartActive = isGentleStartActiveAt(definition, settings, nowMs);
+  const gapAdjusted = nextRunAtMs !== rawNextRunAtMs;
+  const earliestAllowedStartMs = getEarliestAllowedBreakStartMs(
+    settings.minimumBreakGapSeconds,
+    lastBreakGapAtMs,
+  );
+  const minimumGapLabel = formatDelay(settings.minimumBreakGapSeconds);
 
   if (
     queuedOccurrence?.source === "snoozed" &&
@@ -206,6 +218,9 @@ function getReasonForScheduledPreview(
         adaptiveDetails?.adaptiveStatus === "unreachable"
         ? `Aktuelle adaptive Verzögerung: ${adaptivePostponeLabel}.`
         : `Eingestellte Verzögerung: ${formatDelay(definition.postponeLengthSeconds)} pro Verschiebung.`,
+      gapAdjusted && earliestAllowedStartMs !== null
+        ? `Globaler Mindestabstand aktiv: frühester Start nach der letzten Pause ist ${formatDateTime(earliestAllowedStartMs, nowMs)}.`
+        : null,
       `Nächster Snooze-Termin ist ${formatDateTime(queuedOccurrence.dueAtMs, nowMs)}.`,
     );
   }
@@ -218,6 +233,9 @@ function getReasonForScheduledPreview(
         : `Startzeit ${startTimeLabel}, Intervall ${intervalLabel}.`,
       adaptiveDetails?.adaptiveStatus === "unreachable"
         ? "Tagesziel unter den aktuellen Mindestabständen nicht mehr vollständig erreichbar."
+        : null,
+      gapAdjusted && earliestAllowedStartMs !== null
+        ? `Globaler Mindestabstand aktiv: frühester Start nach der letzten Pause ist ${formatDateTime(earliestAllowedStartMs, nowMs)}.`
         : null,
       "Diese Pause ist jetzt fällig.",
     );
@@ -242,6 +260,9 @@ function getReasonForScheduledPreview(
       return joinReasonLines(
         `Startzeit ${startTimeLabel}, Intervall ${intervalLabel}.`,
         "Heute liegt kein weiterer Termin innerhalb der Arbeitszeiten.",
+        gapAdjusted && earliestAllowedStartMs !== null
+          ? `Globaler Mindestabstand von ${minimumGapLabel} verschiebt den nächsten Lauf zusätzlich.`
+          : null,
         `Nächster möglicher Lauf ist ${nextRunLabel}.`,
       );
     }
@@ -262,6 +283,9 @@ function getReasonForScheduledPreview(
       adaptiveDetails?.adaptiveStatus === "unreachable"
         ? "Tagesziel unter den aktuellen Mindestabständen nicht mehr vollständig erreichbar."
         : null,
+      gapAdjusted && earliestAllowedStartMs !== null
+        ? `Globaler Mindestabstand von ${minimumGapLabel} verschiebt den nächsten Lauf zusätzlich.`
+        : null,
       `Nächster passender Termin ist ${nextRunLabel}.`,
     );
   }
@@ -271,6 +295,9 @@ function getReasonForScheduledPreview(
       `Beginn ist ${startTimeLabel}.`,
       gentleStartActive
         ? `Schonender Start aktiv: In den ersten ${gentleStartLabel} bleibt das Standardintervall erhalten.`
+        : null,
+      gapAdjusted && earliestAllowedStartMs !== null
+        ? `Globaler Mindestabstand aktiv: frühester Start nach der letzten Pause ist ${formatDateTime(earliestAllowedStartMs, nowMs)}.`
         : null,
       `Erster Lauf heute ist ${nextRunLabel}.`,
     );
@@ -283,6 +310,9 @@ function getReasonForScheduledPreview(
   ) {
     return joinReasonLines(
       `Startzeit ${startTimeLabel}, Intervall ${intervalLabel}.`,
+      gapAdjusted && earliestAllowedStartMs !== null
+        ? `Globaler Mindestabstand von ${minimumGapLabel} verschiebt den Termin zusätzlich.`
+        : null,
       `Der nächste passende Termin innerhalb der Arbeitszeiten ist ${nextRunLabel}.`,
     );
   }
@@ -305,6 +335,9 @@ function getReasonForScheduledPreview(
     adaptiveDetails?.adaptiveStatus === "unreachable"
       ? "Tagesziel unter den aktuellen Mindestabständen nicht mehr vollständig erreichbar."
       : null,
+    gapAdjusted && earliestAllowedStartMs !== null
+      ? `Globaler Mindestabstand von ${minimumGapLabel} verschiebt den nächsten Lauf zusätzlich.`
+      : null,
     `Nächster Lauf ist ${nextRunLabel}.`,
   );
 }
@@ -315,6 +348,7 @@ export function getBreakDefinitionPreviews(
   nowMs = Date.now(),
   queuedOccurrencesByDefinition: Record<string, ScheduledBreakOccurrence> = {},
   pendingRegularOccurrencesByDefinition: Record<string, number> = {},
+  lastBreakGapAtMs: number | null = null,
 ): BreakDefinitionPreview[] {
   return settings.breakDefinitions.map((definition) => {
     if (!settings.breaksEnabled) {
@@ -344,7 +378,7 @@ export function getBreakDefinitionPreviews(
           pendingRegularOccurrencesByDefinition[definition.id] ?? 0,
         )
       : null;
-    const nextRunAtMs =
+    const rawNextRunAtMs =
       queuedOccurrence?.dueAtMs && queuedOccurrence.dueAtMs >= nowMs
         ? queuedOccurrence.dueAtMs
         : (adaptiveState?.occurrencesMs[0] ??
@@ -361,6 +395,15 @@ export function getBreakDefinitionPreviews(
                 ),
               ) && canOccurrenceRunInWorkingHoursAt(dueAtMs, settings),
           ));
+
+    const nextRunAtMs =
+      rawNextRunAtMs === null
+        ? null
+        : applyMinimumBreakGap(
+            rawNextRunAtMs,
+            settings.minimumBreakGapSeconds,
+            lastBreakGapAtMs,
+          );
 
     if (nextRunAtMs === null) {
       return {
@@ -382,6 +425,8 @@ export function getBreakDefinitionPreviews(
         history,
         nowMs,
         nextRunAtMs,
+        rawNextRunAtMs ?? nextRunAtMs,
+        lastBreakGapAtMs,
         queuedOccurrence,
         adaptiveState
           ? {

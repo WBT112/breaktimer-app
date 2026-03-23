@@ -160,6 +160,13 @@ export default function SettingsEl() {
     });
   };
 
+  const handleTimeSettingChange = (field: string, value: number): void => {
+    setSettingsDraft({
+      ...settingsDraft,
+      [field]: value,
+    });
+  };
+
   const handleBreakDefinitionsChange = (
     breakDefinitions: BreakDefinition[],
   ): void => {
@@ -245,6 +252,7 @@ export default function SettingsEl() {
             <AdvancedCard
               settingsDraft={settingsDraft}
               onSwitchChange={handleSwitchChange}
+              onTimeChange={handleTimeSettingChange}
             />
           </TabsContent>
 

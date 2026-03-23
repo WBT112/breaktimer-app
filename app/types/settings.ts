@@ -83,6 +83,7 @@ export interface Settings {
   trayTextEnabled: boolean;
   trayTextMode: TrayTextMode;
   reminderDisplayMode: BreakReminderDisplayMode;
+  minimumBreakGapSeconds: number;
   breakDefinitions: BreakDefinition[];
   customBreakCategories: BreakCategoryDefinition[];
   breakCategoryGoals: BreakCategoryGoal[];
@@ -233,6 +234,7 @@ export function normalizeSettings(settings: Settings): Settings {
 
   return {
     ...settings,
+    minimumBreakGapSeconds: Math.max(0, settings.minimumBreakGapSeconds),
     customBreakCategories: normalizedCustomBreakCategories,
     breakCategoryGoals: normalizedBreakCategoryGoals,
     breakDefinitions: normalizedBreakDefinitions,
@@ -245,6 +247,7 @@ export const defaultSettings: Settings = {
   trayTextEnabled: true,
   trayTextMode: TrayTextMode.TimeToNextBreak,
   reminderDisplayMode: BreakReminderDisplayMode.AllMonitors,
+  minimumBreakGapSeconds: 10 * 60,
   breakDefinitions: [createDefaultBreakDefinition("default-break-1")],
   customBreakCategories: [],
   breakCategoryGoals: [],

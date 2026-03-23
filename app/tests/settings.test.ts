@@ -67,6 +67,10 @@ describe("settings helpers", () => {
     expect(defaultSettings.manualBreakEndRequired).toBe(false);
   });
 
+  it("uses a 10-minute global minimum gap by default", () => {
+    expect(defaultSettings.minimumBreakGapSeconds).toBe(10 * 60);
+  });
+
   it("creates new break definitions with adaptive scheduling disabled and healthy minimums", () => {
     const breakDefinition = createDefaultBreakDefinition("break-4");
 

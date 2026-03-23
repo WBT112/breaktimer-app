@@ -1,16 +1,20 @@
+import { FormGroup } from "@/components/ui/form-group";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import SettingsCard from "./settings-card";
+import TimeInput from "./time-input";
 import { NotificationType, Settings } from "../../../types/settings";
 
 interface AdvancedCardProps {
   settingsDraft: Settings;
   onSwitchChange: (field: string, checked: boolean) => void;
+  onTimeChange: (field: string, value: number) => void;
 }
 
 export default function AdvancedCard({
   settingsDraft,
   onSwitchChange,
+  onTimeChange,
 }: AdvancedCardProps) {
   const hasPopupBreaks = settingsDraft.breakDefinitions.some(
     (breakDefinition) =>
@@ -73,6 +77,18 @@ export default function AdvancedCard({
           />
           <Label>Pausen parallel terminieren</Label>
         </div>
+
+        <FormGroup
+          label="Globaler Mindestabstand"
+          labelInfo="Zwischen dem Ende einer Pause und dem Start der nächsten."
+        >
+          <TimeInput
+            value={settingsDraft.minimumBreakGapSeconds}
+            onChange={(value) => onTimeChange("minimumBreakGapSeconds", value)}
+            precision="minutes"
+            maxHours={12}
+          />
+        </FormGroup>
       </div>
     </SettingsCard>
   );

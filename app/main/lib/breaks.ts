@@ -32,6 +32,10 @@ import {
   sortOccurrencesByDueAt,
   shiftStateAfterIdle,
 } from "./break-schedule";
+import {
+  applyMinimumBreakGap,
+  getEarliestAllowedBreakStartMs,
+} from "./break-gap";
 import { sendIpc } from "./ipc";
 import { showNotification } from "./notifications";
 import {
@@ -237,6 +241,7 @@ let lastTick: Date | null = null;
 let startedFromTray = false;
 
 let lastCompletedBreakTime: Date | null = new Date();
+let lastBreakGapTime: Date | null = null;
 let currentBreakStartTime: Date | null = null;
 
 function getCompletedBreakCount(
@@ -303,6 +308,14 @@ function getPendingRegularOccurrenceCounts(): Record<string, number> {
   }
 
   return counts;
+}
+
+function getLastBreakGapAtMs(): number | null {
+  return lastBreakGapTime?.getTime() ?? null;
+}
+
+export function getLastBreakGapAtMsForPreview(): number | null {
+  return getLastBreakGapAtMs();
 }
 
 export function getBreakTime(): BreakTime {
@@ -380,8 +393,14 @@ export function startBreakTracking(): void {
   currentBreakStartTime = new Date();
 }
 
-export function resetTimeSinceLastBreak(context: string): void {
+export function resetTimeSinceLastBreak(
+  context: string,
+  affectMinimumGap = false,
+): void {
   lastCompletedBreakTime = new Date();
+  if (affectMinimumGap) {
+    lastBreakGapTime = new Date();
+  }
   log.info(context);
   buildTray();
 }
@@ -412,7 +431,7 @@ function markBreakCompleted(
     );
   }
 
-  resetTimeSinceLastBreak(context);
+  resetTimeSinceLastBreak(context, true);
   currentBreakStartTime = null;
 }
 
@@ -502,6 +521,7 @@ function getNextOccurrenceCandidate(): ScheduledBreakOccurrence | null {
 function getNextDisplayOccurrenceCandidate(): ScheduledBreakOccurrence | null {
   const queuedOccurrence = dueQueue[0] ?? null;
   const settings = getSettings();
+  const lastBreakGapAtMs = getLastBreakGapAtMs();
   let scheduledOccurrence: ScheduledBreakOccurrence | null = null;
 
   for (const definition of getEnabledBreakDefinitions(settings)) {
@@ -539,16 +559,22 @@ function getNextDisplayOccurrenceCandidate(): ScheduledBreakOccurrence | null {
       continue;
     }
 
-    if (!scheduledOccurrence || dueAtMs < scheduledOccurrence.dueAtMs) {
+    const adjustedDueAtMs = applyMinimumBreakGap(
+      dueAtMs,
+      settings.minimumBreakGapSeconds,
+      lastBreakGapAtMs,
+    );
+
+    if (!scheduledOccurrence || adjustedDueAtMs < scheduledOccurrence.dueAtMs) {
       scheduledOccurrence = {
         occurrenceId: createScheduledOccurrenceId(
           definition.id,
-          getDayStartMs(dueAtMs),
+          getDayStartMs(adjustedDueAtMs),
           null,
-          dueAtMs,
+          adjustedDueAtMs,
         ),
         breakDefinitionId: definition.id,
-        dueAtMs,
+        dueAtMs: adjustedDueAtMs,
         sequenceIndex: null,
         postponeCount: 0,
         source: "scheduled",
@@ -556,16 +582,27 @@ function getNextDisplayOccurrenceCandidate(): ScheduledBreakOccurrence | null {
     }
   }
 
-  if (!queuedOccurrence) {
+  const adjustedQueuedOccurrence = queuedOccurrence
+    ? {
+        ...queuedOccurrence,
+        dueAtMs: applyMinimumBreakGap(
+          queuedOccurrence.dueAtMs,
+          settings.minimumBreakGapSeconds,
+          lastBreakGapAtMs,
+        ),
+      }
+    : null;
+
+  if (!adjustedQueuedOccurrence) {
     return scheduledOccurrence;
   }
 
   if (!scheduledOccurrence) {
-    return queuedOccurrence;
+    return adjustedQueuedOccurrence;
   }
 
-  return queuedOccurrence.dueAtMs <= scheduledOccurrence.dueAtMs
-    ? queuedOccurrence
+  return adjustedQueuedOccurrence.dueAtMs <= scheduledOccurrence.dueAtMs
+    ? adjustedQueuedOccurrence
     : scheduledOccurrence;
 }
 
@@ -720,7 +757,20 @@ function startNextDueOccurrence(): void {
   sortDueQueue();
 
   const nextOccurrence = dueQueue[0];
-  if (!nextOccurrence || nextOccurrence.dueAtMs > Date.now()) {
+  if (!nextOccurrence) {
+    return;
+  }
+
+  const nowMs = Date.now();
+  const earliestAllowedStartMs = getEarliestAllowedBreakStartMs(
+    getSettings().minimumBreakGapSeconds,
+    getLastBreakGapAtMs(),
+  );
+
+  if (
+    nextOccurrence.dueAtMs > nowMs ||
+    (earliestAllowedStartMs !== null && nowMs < earliestAllowedStartMs)
+  ) {
     return;
   }
 
@@ -1065,7 +1115,7 @@ function tick(): void {
 
       if (didReset) {
         createIdleNotification();
-        resetTimeSinceLastBreak("Break auto-detected via idle reset");
+        resetTimeSinceLastBreak("Break auto-detected via idle reset", true);
       }
 
       idleStart = null;
@@ -1079,7 +1129,7 @@ function tick(): void {
 
       if (didReset) {
         createIdleNotification();
-        resetTimeSinceLastBreak("Break auto-detected via sleep reset");
+        resetTimeSinceLastBreak("Break auto-detected via sleep reset", true);
       }
 
       idleStart = null;

@@ -66,7 +66,7 @@ describe("settings migrations", () => {
 
     const migrated = migrateSettingsObject(legacySettings, 2);
 
-    expect(migrated.version).toBe(7);
+    expect(migrated.version).toBe(8);
     expect(migrated.settings.breakDefinitions).toHaveLength(1);
     expect(migrated.settings.breakDefinitions[0]).toMatchObject({
       categoryId: "general",
@@ -92,6 +92,7 @@ describe("settings migrations", () => {
     expect(migrated.settings.reminderDisplayMode).toBe(
       BreakReminderDisplayMode.AllMonitors,
     );
+    expect(migrated.settings.minimumBreakGapSeconds).toBe(10 * 60);
     expect("notificationType" in migrated.settings).toBe(false);
     expect("breakFrequencySeconds" in migrated.settings).toBe(false);
     expect("breakTitle" in migrated.settings).toBe(false);

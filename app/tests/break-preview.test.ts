@@ -64,6 +64,34 @@ describe("break preview", () => {
     expect(previews[0].reason).toContain("Nächster Lauf ist heute um 10:00.");
   });
 
+  it("delays the preview when the global minimum gap would be violated", () => {
+    const { settings, history } = createSettings({
+      minimumBreakGapSeconds: 10 * 60,
+      breakDefinitions: [
+        createDefaultBreakDefinition("break-1", {
+          startTimeSeconds: 8 * 60 * 60,
+          intervalSeconds: 2 * 60 * 60,
+        }),
+      ],
+    });
+
+    const previews = getBreakDefinitionPreviews(
+      settings,
+      history,
+      new Date(2026, 2, 20, 9, 55).getTime(),
+      {},
+      {},
+      new Date(2026, 2, 20, 9, 52).getTime(),
+    );
+
+    expect(previews[0].nextRunAtMs).toBe(
+      new Date(2026, 2, 20, 10, 2).getTime(),
+    );
+    expect(previews[0].reason).toContain(
+      "Globaler Mindestabstand von 10 Minuten verschiebt den nächsten Lauf zusätzlich.",
+    );
+  });
+
   it("rounds preview text to minutes when the next run is not aligned to a full minute", () => {
     const { settings, history } = createSettings({
       breakDefinitions: [

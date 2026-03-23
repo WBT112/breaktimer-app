@@ -304,6 +304,16 @@ const migrations: Migration[] = [
       return settings;
     },
   },
+  {
+    version: 8,
+    migrate: (settings) => {
+      if (typeof settings.minimumBreakGapSeconds !== "number") {
+        settings.minimumBreakGapSeconds = 10 * 60;
+      }
+
+      return settings;
+    },
+  },
 ];
 
 export function migrateSettingsObject(
