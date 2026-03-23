@@ -3,6 +3,7 @@ import { ScheduledBreakOccurrence } from "../types/breaks";
 import {
   advanceStateAfterQueuedOccurrence,
   advanceStatePastInvalidOccurrences,
+  buildAdaptiveTargetSlots,
   buildDailyOccurrences,
   createAdaptiveDefinitionState,
   createDefinitionState,
@@ -273,7 +274,7 @@ describe("break schedule", () => {
     expect(state.adaptiveStatus).toBe("fixed");
   });
 
-  it("keeps the configured interval throughout the two-hour gentle start window", () => {
+  it("keeps the configured interval throughout the one-hour gentle start window", () => {
     const settings = createSettings({
       adaptiveSchedulingEnabled: true,
       startTimeSeconds: 8 * 60 * 60,
@@ -288,20 +289,41 @@ describe("break schedule", () => {
     const state = createAdaptiveDefinitionState(
       settings.breakDefinitions[0],
       settings,
-      new Date(2026, 2, 19, 9, 30).getTime(),
-      1,
+      new Date(2026, 2, 19, 8, 30).getTime(),
+      0,
       0,
     );
 
     expect(state.adaptiveIntervalSeconds).toBe(2 * 60 * 60);
     expect(state.adaptivePostponeSeconds).toBe(15 * 60);
     expect(state.occurrencesMs[0]).toBe(
-      new Date(2026, 2, 19, 11, 30).getTime(),
+      new Date(2026, 2, 19, 10, 30).getTime(),
     );
     expect(state.adaptiveStatus).toBe("fixed");
   });
 
-  it("tightens the interval after delays but never below the configured minimum", () => {
+  it("builds evenly distributed adaptive target slots across the workday", () => {
+    const settings = createSettings({
+      adaptiveSchedulingEnabled: true,
+      startTimeSeconds: 8 * 60 * 60,
+      maxOccurrencesPerDay: 4,
+      breakLengthSeconds: 10 * 60,
+    });
+
+    const slots = buildAdaptiveTargetSlots(
+      settings.breakDefinitions[0],
+      settings,
+      new Date(2026, 2, 19).getTime(),
+    );
+
+    expect(slots).toHaveLength(4);
+    expect(slots[0]).toBe(new Date(2026, 2, 19, 9, 0).getTime());
+    expect(slots[3]).toBe(new Date(2026, 2, 19, 17, 50).getTime());
+    expect(slots[1] - slots[0]).toBeCloseTo(slots[2] - slots[1], -4);
+    expect(slots[2] - slots[1]).toBeCloseTo(slots[3] - slots[2], -4);
+  });
+
+  it("tightens the interval gradually when the day is slightly behind plan", () => {
     const settings = createSettings({
       adaptiveSchedulingEnabled: true,
       startTimeSeconds: 8 * 60 * 60,
@@ -321,15 +343,15 @@ describe("break schedule", () => {
       1,
     );
 
-    expect(state.adaptiveIntervalSeconds).toBe(65 * 60);
+    expect(state.adaptiveIntervalSeconds).toBe(60 * 60);
     expect(state.adaptivePostponeSeconds).toBe(15 * 60);
     expect(state.occurrencesMs[0]).toBe(
-      new Date(2026, 2, 19, 16, 35).getTime(),
+      new Date(2026, 2, 19, 16, 30).getTime(),
     );
     expect(state.adaptiveStatus).toBe("adaptive");
   });
 
-  it("shrinks adaptive snooze time on tight days but not below the minimum", () => {
+  it("shrinks adaptive snooze time on stronger deficits but not below the minimum", () => {
     const settings = createSettings({
       adaptiveSchedulingEnabled: true,
       startTimeSeconds: 8 * 60 * 60,
@@ -346,11 +368,11 @@ describe("break schedule", () => {
       settings,
       new Date(2026, 2, 19, 16, 30).getTime(),
       0,
-      1,
+      0,
     );
 
-    expect(state.adaptiveIntervalSeconds).toBe(35 * 60);
-    expect(state.adaptivePostponeSeconds).toBe(35 * 60);
+    expect(state.adaptiveIntervalSeconds).toBe(30 * 60);
+    expect(state.adaptivePostponeSeconds).toBe(30 * 60);
     expect(state.adaptiveStatus).toBe("adaptive");
   });
 
@@ -406,10 +428,14 @@ describe("break schedule", () => {
       0,
     );
 
-    expect(state.occurrencesMs[0]).toBe(
-      new Date(2026, 2, 18, 14, 10).getTime(),
+    expect(state.occurrencesMs).toHaveLength(3);
+    expect(state.occurrencesMs[0]).toBeGreaterThanOrEqual(
+      new Date(2026, 2, 18, 13, 0).getTime(),
     );
-    expect(state.occurrencesMs[1]).toBe(new Date(2026, 2, 18, 16, 0).getTime());
+    expect(state.occurrencesMs[0]).toBeLessThanOrEqual(
+      new Date(2026, 2, 18, 18, 0).getTime(),
+    );
+    expect(state.occurrencesMs[1]).toBeGreaterThan(state.occurrencesMs[0]);
     expect(
       getWorkingTimeRangesForDay(settings, new Date(2026, 2, 18).getTime()),
     ).toHaveLength(2);

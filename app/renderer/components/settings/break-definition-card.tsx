@@ -300,8 +300,8 @@ export default function BreakDefinitionCard({
               Tagesziel sonst knapp wird.
             </p>
             <p className="text-xs text-muted-foreground mt-1">
-              Schonender Start: In den ersten 2 Stunden bleibt morgens das
-              normale Intervall erhalten.
+              Schonender Start: In der ersten Stunde bleibt morgens das normale
+              Intervall erhalten.
             </p>
           </div>
           <Switch

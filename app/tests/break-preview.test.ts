@@ -59,7 +59,7 @@ describe("break preview", () => {
       new Date(2026, 2, 20, 10, 0).getTime(),
     );
     expect(previews[0].reason).toContain(
-      "Startzeit 08:00, Intervall 2 Stunden.",
+      "Im Soll des Arbeitstags. Standardintervall: 2 Stunden.",
     );
     expect(previews[0].reason).toContain("Nächster Lauf ist heute um 10:00.");
   });
@@ -216,7 +216,8 @@ describe("break preview", () => {
   });
 
   it("explains adaptive tightening and the current adaptive spacing", () => {
-    const { settings, history } = createSettings({
+    const dayStartMs = new Date(2026, 2, 20).getTime();
+    const { settings } = createSettings({
       breakDefinitions: [
         createDefaultBreakDefinition("break-1", {
           adaptiveSchedulingEnabled: true,
@@ -233,16 +234,23 @@ describe("break preview", () => {
 
     const previews = getBreakDefinitionPreviews(
       settings,
-      history,
+      {
+        [getBreakHistoryKey("break-1", dayStartMs)]: {
+          definitionId: "break-1",
+          dayStartMs,
+          completedCount: 1,
+          lastCompletedAtMs: new Date(2026, 2, 20, 11, 30).getTime(),
+        },
+      },
       new Date(2026, 2, 20, 15, 30).getTime(),
       {},
       { "break-1": 1 },
     );
 
     expect(previews[0].adaptiveStatus).toBe("adaptive");
-    expect(previews[0].adaptiveIntervalSeconds).toBe(40 * 60);
+    expect(previews[0].adaptiveIntervalSeconds).toBe(60 * 60);
     expect(previews[0].reason).toContain(
-      "Adaptiv verdichtet wegen Tagesziel. Aktueller Abstand: 40 Minuten.",
+      "Leicht verdichtet, um im Tagesplan zu bleiben. Aktueller Abstand: 1 Stunde.",
     );
   });
 
@@ -265,12 +273,12 @@ describe("break preview", () => {
     const previews = getBreakDefinitionPreviews(
       settings,
       history,
-      new Date(2026, 2, 20, 9, 30).getTime(),
+      new Date(2026, 2, 20, 8, 30).getTime(),
     );
 
     expect(previews[0].adaptiveStatus).toBe("fixed");
     expect(previews[0].reason).toContain(
-      "Schonender Start aktiv: In den ersten 2 Stunden bleibt das Standardintervall erhalten.",
+      "Schonender Start aktiv: In der ersten 1 Stunde bleibt das Standardintervall erhalten.",
     );
   });
 });

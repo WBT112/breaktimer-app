@@ -12,3 +12,7 @@ export function formatNextBreakLabel(
     return `Nächste Pause in weniger als einer Minute${titleSuffix}`;
   }
 }
+
+export function formatTrayTooltip(nextBreakLabel: string | null): string {
+  return nextBreakLabel || "BreakTimer";
+}

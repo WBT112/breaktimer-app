@@ -19,7 +19,7 @@ import {
   setDisableEndTime,
   setSettings,
 } from "./store";
-import { formatNextBreakLabel } from "./tray-utils";
+import { formatNextBreakLabel, formatTrayTooltip } from "./tray-utils";
 import { closeBreakWindows, createSettingsWindow } from "./windows";
 
 let tray: Tray;
@@ -202,6 +202,8 @@ export function buildTray(): void {
     const title = nextBreakDefinition?.breakTitle.trim() || null;
     nextBreak = formatNextBreakLabel(minsLeft, title);
   }
+
+  tray.setToolTip(formatTrayTooltip(nextBreak || null));
 
   const disableEndTime = getDisableEndTime();
 

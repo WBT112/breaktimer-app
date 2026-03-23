@@ -294,7 +294,7 @@ function getReasonForScheduledPreview(
     return joinReasonLines(
       `Beginn ist ${startTimeLabel}.`,
       gentleStartActive
-        ? `Schonender Start aktiv: In den ersten ${gentleStartLabel} bleibt das Standardintervall erhalten.`
+        ? `Schonender Start aktiv: In der ersten ${gentleStartLabel} bleibt das Standardintervall erhalten.`
         : null,
       gapAdjusted && earliestAllowedStartMs !== null
         ? `Globaler Mindestabstand aktiv: frühester Start nach der letzten Pause ist ${formatDateTime(earliestAllowedStartMs, nowMs)}.`
@@ -322,12 +322,14 @@ function getReasonForScheduledPreview(
       ? `Letzter abgeschlossener Lauf war ${latestCompletedLabel}.`
       : null,
     gentleStartActive
-      ? `Schonender Start aktiv: In den ersten ${gentleStartLabel} bleibt das Standardintervall erhalten.`
+      ? `Schonender Start aktiv: In der ersten ${gentleStartLabel} bleibt das Standardintervall erhalten.`
       : null,
     adaptiveDetails?.adaptiveStatus === "adaptive" ||
       adaptiveDetails?.adaptiveStatus === "unreachable"
-      ? `Adaptiv verdichtet wegen Tagesziel. Aktueller Abstand: ${adaptiveIntervalLabel}.`
-      : `Startzeit ${startTimeLabel}, Intervall ${intervalLabel}.`,
+      ? adaptiveDetails?.adaptiveStatus === "adaptive"
+        ? `Leicht verdichtet, um im Tagesplan zu bleiben. Aktueller Abstand: ${adaptiveIntervalLabel}.`
+        : `Deutlich im Rückstand, deshalb enger geplant. Aktueller Abstand: ${adaptiveIntervalLabel}.`
+      : `Im Soll des Arbeitstags. Standardintervall: ${intervalLabel}.`,
     adaptiveDetails?.adaptiveStatus === "adaptive" &&
       adaptivePostponeLabel !== null
       ? `Aktuelle adaptive Verschiebezeit: ${adaptivePostponeLabel}.`

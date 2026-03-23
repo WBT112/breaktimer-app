@@ -31,7 +31,7 @@ export interface AdaptiveScheduleResult {
 }
 
 export const DAY_MS = 24 * 60 * 60 * 1000;
-export const GENTLE_START_DURATION_SECONDS = 2 * 60 * 60;
+export const GENTLE_START_DURATION_SECONDS = 1 * 60 * 60;
 
 function clampSeconds(
   valueSeconds: number,
@@ -181,6 +181,31 @@ export function getRemainingWorkingTimeMs(
   return remainingMs;
 }
 
+export function getWorkingDurationBetweenMs(
+  ranges: WorkingTimeRangeMs[],
+  fromMs: number,
+  toMs: number,
+): number {
+  if (toMs <= fromMs) {
+    return 0;
+  }
+
+  let durationMs = 0;
+
+  for (const range of ranges) {
+    const overlapStartMs = Math.max(range.startMs, fromMs);
+    const overlapEndMs = Math.min(range.endMs, toMs);
+
+    if (overlapEndMs <= overlapStartMs) {
+      continue;
+    }
+
+    durationMs += overlapEndMs - overlapStartMs;
+  }
+
+  return durationMs;
+}
+
 export function addWorkingDuration(
   ranges: WorkingTimeRangeMs[],
   fromMs: number,
@@ -227,6 +252,38 @@ export function addWorkingDuration(
   return null;
 }
 
+function getNextWorkingTimeAtOrAfter(
+  ranges: WorkingTimeRangeMs[],
+  timestampMs: number,
+): number | null {
+  return addWorkingDuration(ranges, timestampMs, 0);
+}
+
+function canFitRemainingOccurrencesAtMinimumGap(
+  ranges: WorkingTimeRangeMs[],
+  cursorMs: number,
+  remainingCount: number,
+  minimumIntervalSeconds: number,
+  pauseDurationMs: number,
+): boolean {
+  let candidateCursorMs = cursorMs;
+
+  for (let index = 0; index < remainingCount; index++) {
+    const nextDueAtMs = getNextWorkingTimeAtOrAfter(
+      ranges,
+      candidateCursorMs + minimumIntervalSeconds * 1000,
+    );
+
+    if (nextDueAtMs === null) {
+      return false;
+    }
+
+    candidateCursorMs = nextDueAtMs + pauseDurationMs;
+  }
+
+  return true;
+}
+
 export function buildDailyOccurrences(
   definition: BreakDefinition,
   dayStartMs: number,
@@ -243,6 +300,70 @@ export function buildDailyOccurrences(
   }
 
   return occurrences;
+}
+
+export function buildAdaptiveTargetSlots(
+  definition: BreakDefinition,
+  settings: Settings,
+  dayStartMs: number,
+): number[] {
+  const targetCount = definition.maxOccurrencesPerDay ?? 0;
+
+  if (targetCount <= 0) {
+    return [];
+  }
+
+  const workingRanges = getWorkingTimeRangesForDay(settings, dayStartMs);
+  if (workingRanges.length === 0) {
+    return [];
+  }
+
+  const firstPossibleStartMs = addWorkingDuration(
+    workingRanges,
+    dayStartMs + definition.startTimeSeconds * 1000,
+    0,
+  );
+
+  if (firstPossibleStartMs === null) {
+    return [];
+  }
+
+  if (targetCount === 1) {
+    return [firstPossibleStartMs];
+  }
+
+  const pauseDurationMs =
+    definition.notificationType === NotificationType.Notification
+      ? 0
+      : definition.breakLengthSeconds * 1000;
+  const workingWindowMs = getRemainingWorkingTimeMs(
+    workingRanges,
+    firstPossibleStartMs,
+  );
+  const usableWindowMs = Math.max(workingWindowMs - pauseDurationMs, 0);
+  const slots: number[] = [];
+
+  for (let index = 0; index < targetCount; index++) {
+    const ratio = index / (targetCount - 1);
+    const slotMs = addWorkingDuration(
+      workingRanges,
+      firstPossibleStartMs,
+      Math.floor(usableWindowMs * ratio),
+    );
+
+    if (slotMs !== null) {
+      slots.push(slotMs);
+    }
+  }
+
+  return slots;
+}
+
+export function getExpectedCompletedCountByTime(
+  targetOccurrencesMs: number[],
+  timestampMs: number,
+): number {
+  return targetOccurrencesMs.filter((dueAtMs) => dueAtMs <= timestampMs).length;
 }
 
 export function createDefinitionState(
@@ -280,27 +401,33 @@ export function createAdaptiveDefinitionState(
   }
 
   const maxOccurrencesPerDay = definition.maxOccurrencesPerDay ?? 0;
-  const remainingGoalCount = Math.max(
-    maxOccurrencesPerDay - completedCountToday - pendingRegularOccurrenceCount,
-    0,
-  );
-  const firstDueAtMs = dayStartMs + definition.startTimeSeconds * 1000;
   const workingRanges = getWorkingTimeRangesForDay(settings, dayStartMs);
+  const targetOccurrencesMs = buildAdaptiveTargetSlots(
+    definition,
+    settings,
+    dayStartMs,
+  );
+  const scheduledStartMs = dayStartMs + definition.startTimeSeconds * 1000;
+  const firstPossibleStartMs = targetOccurrencesMs[0] ?? null;
   const gentleStartEndMs = getGentleStartEndMs(
     definition,
     settings,
     dayStartMs,
   );
-  const baselineUnreachableState: BreakDefinitionState = {
-    ...initialState,
-    occurrencesMs: [],
-    nextIndex: 0,
-    adaptiveIntervalSeconds: definition.intervalSeconds,
-    adaptivePostponeSeconds: definition.postponeLengthSeconds,
-    adaptiveStatus: "unreachable",
-  };
+  const actualProgressCount = Math.max(
+    completedCountToday + pendingRegularOccurrenceCount,
+    0,
+  );
+  const remainingGoalCount = Math.max(
+    maxOccurrencesPerDay - actualProgressCount,
+    0,
+  );
 
-  if (workingRanges.length === 0 || remainingGoalCount === 0) {
+  if (
+    workingRanges.length === 0 ||
+    remainingGoalCount === 0 ||
+    targetOccurrencesMs.length === 0
+  ) {
     return {
       ...initialState,
       occurrencesMs: [],
@@ -330,109 +457,67 @@ export function createAdaptiveDefinitionState(
   const occurrencesMs: number[] = [];
 
   let cursorMs = nowMs;
-  let remainingCount = remainingGoalCount;
+  let progressCount = actualProgressCount;
 
-  if (
-    completedCountToday === 0 &&
-    pendingRegularOccurrenceCount === 0 &&
-    nowMs < firstDueAtMs
+  for (
+    let remainingIndex = 0;
+    remainingIndex < remainingGoalCount;
+    remainingIndex++
   ) {
-    const fixedFirstOccurrence = addWorkingDuration(
-      workingRanges,
-      firstDueAtMs,
-      0,
-    );
-
-    if (fixedFirstOccurrence === null) {
-      return baselineUnreachableState;
-    }
-
-    occurrencesMs.push(fixedFirstOccurrence);
-    remainingCount -= 1;
-    const cursorAfterPause = addWorkingDuration(
-      workingRanges,
-      fixedFirstOccurrence,
-      pauseDurationMs,
-    );
-
-    if (remainingCount === 0) {
-      return {
-        ...initialState,
-        occurrencesMs,
-        nextIndex: 0,
-        adaptiveIntervalSeconds: definition.intervalSeconds,
-        adaptivePostponeSeconds: definition.postponeLengthSeconds,
-        adaptiveStatus: "fixed",
-      };
-    }
-
-    if (cursorAfterPause === null) {
-      return {
-        ...baselineUnreachableState,
-        occurrencesMs,
-      };
-    }
-
-    cursorMs = cursorAfterPause;
-  }
-
-  while (remainingCount > 0) {
-    const remainingWorkingTimeMs = getRemainingWorkingTimeMs(
-      workingRanges,
-      cursorMs,
-    );
-
-    if (remainingWorkingTimeMs <= 0) {
-      adaptiveStatus = "unreachable";
-      break;
-    }
-
     const withinGentleStart =
       gentleStartEndMs !== null && cursorMs < gentleStartEndMs;
-    const betweenBudgetMs = Math.max(
-      remainingWorkingTimeMs - remainingCount * pauseDurationMs,
-      0,
+    const expectedCompletedByNow = getExpectedCompletedCountByTime(
+      targetOccurrencesMs,
+      cursorMs,
     );
-    const idealSpacingSeconds = Math.floor(
-      betweenBudgetMs / remainingCount / 1000,
-    );
-    const nextIntervalSeconds = withinGentleStart
-      ? definition.intervalSeconds
-      : clampSeconds(
-          idealSpacingSeconds,
-          minimumIntervalSeconds,
-          definition.intervalSeconds,
-        );
-    const nextPostponeSeconds = withinGentleStart
-      ? definition.postponeLengthSeconds
-      : clampSeconds(
-          idealSpacingSeconds,
-          minimumPostponeSeconds,
-          definition.postponeLengthSeconds,
-        );
+    const progressDeficit = Math.max(expectedCompletedByNow - progressCount, 0);
+    const remainingIncludingCurrent = remainingGoalCount - remainingIndex;
+    const canFitRemainingAtMinimumGap =
+      pendingRegularOccurrenceCount === 0 ||
+      canFitRemainingOccurrencesAtMinimumGap(
+        workingRanges,
+        cursorMs,
+        remainingIncludingCurrent,
+        minimumIntervalSeconds,
+        pauseDurationMs,
+      );
 
-    adaptiveIntervalSeconds = nextIntervalSeconds;
-    adaptivePostponeSeconds = nextPostponeSeconds;
-
+    let nextIntervalSeconds = definition.intervalSeconds;
     let nextAdaptiveStatus: "fixed" | "adaptive" | "unreachable" = "fixed";
+    let dueAtMs: number | null = null;
 
     if (
-      !withinGentleStart &&
-      (nextIntervalSeconds < definition.intervalSeconds ||
-        nextPostponeSeconds < definition.postponeLengthSeconds)
+      progressCount === 0 &&
+      firstPossibleStartMs !== null &&
+      cursorMs < scheduledStartMs
     ) {
-      nextAdaptiveStatus = "adaptive";
-    }
+      dueAtMs = firstPossibleStartMs;
+    } else {
+      if (!withinGentleStart) {
+        if (!canFitRemainingAtMinimumGap) {
+          nextIntervalSeconds = minimumIntervalSeconds;
+          nextAdaptiveStatus = "unreachable";
+        } else if (progressDeficit === 1) {
+          nextIntervalSeconds = clampSeconds(
+            Math.floor(definition.intervalSeconds / 2),
+            minimumIntervalSeconds,
+            definition.intervalSeconds,
+          );
+          nextAdaptiveStatus =
+            nextIntervalSeconds < definition.intervalSeconds
+              ? "adaptive"
+              : "fixed";
+        } else if (progressDeficit >= 2) {
+          nextIntervalSeconds = minimumIntervalSeconds;
+          nextAdaptiveStatus = "adaptive";
+        }
+      }
 
-    if (!withinGentleStart && idealSpacingSeconds < minimumIntervalSeconds) {
-      nextAdaptiveStatus = "unreachable";
+      dueAtMs = getNextWorkingTimeAtOrAfter(
+        workingRanges,
+        cursorMs + nextIntervalSeconds * 1000,
+      );
     }
-
-    const dueAtMs = addWorkingDuration(
-      workingRanges,
-      cursorMs,
-      nextIntervalSeconds * 1000,
-    );
 
     if (dueAtMs === null) {
       adaptiveStatus =
@@ -440,32 +525,29 @@ export function createAdaptiveDefinitionState(
       break;
     }
 
+    const nextPostponeSeconds =
+      withinGentleStart || nextAdaptiveStatus === "fixed"
+        ? definition.postponeLengthSeconds
+        : clampSeconds(
+            nextIntervalSeconds,
+            minimumPostponeSeconds,
+            definition.postponeLengthSeconds,
+          );
+
     if (occurrencesMs.length === 0) {
       adaptiveIntervalSeconds = nextIntervalSeconds;
       adaptivePostponeSeconds = nextPostponeSeconds;
       adaptiveStatus = nextAdaptiveStatus;
+    } else if (
+      adaptiveStatus !== "unreachable" &&
+      nextAdaptiveStatus === "unreachable"
+    ) {
+      adaptiveStatus = "unreachable";
     }
 
     occurrencesMs.push(dueAtMs);
-    remainingCount -= 1;
-
-    const nextCursorMs = addWorkingDuration(
-      workingRanges,
-      dueAtMs,
-      pauseDurationMs,
-    );
-
-    if (remainingCount === 0) {
-      break;
-    }
-
-    if (nextCursorMs === null) {
-      adaptiveStatus =
-        occurrencesMs.length === 0 ? "unreachable" : adaptiveStatus;
-      break;
-    }
-
-    cursorMs = nextCursorMs;
+    progressCount += 1;
+    cursorMs = dueAtMs + pauseDurationMs;
   }
 
   return {
