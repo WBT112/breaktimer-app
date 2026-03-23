@@ -71,11 +71,18 @@ export enum TrayTextMode {
   TimeSinceLastBreak = "TIME_SINCE_LAST_BREAK",
 }
 
+export enum BreakReminderDisplayMode {
+  MainMonitor = "MAIN_MONITOR",
+  SecondaryMonitors = "SECONDARY_MONITORS",
+  AllMonitors = "ALL_MONITORS",
+}
+
 export interface Settings {
   autoLaunch: boolean;
   breaksEnabled: boolean;
   trayTextEnabled: boolean;
   trayTextMode: TrayTextMode;
+  reminderDisplayMode: BreakReminderDisplayMode;
   breakDefinitions: BreakDefinition[];
   customBreakCategories: BreakCategoryDefinition[];
   breakCategoryGoals: BreakCategoryGoal[];
@@ -237,6 +244,7 @@ export const defaultSettings: Settings = {
   breaksEnabled: true,
   trayTextEnabled: true,
   trayTextMode: TrayTextMode.TimeToNextBreak,
+  reminderDisplayMode: BreakReminderDisplayMode.AllMonitors,
   breakDefinitions: [createDefaultBreakDefinition("default-break-1")],
   customBreakCategories: [],
   breakCategoryGoals: [],

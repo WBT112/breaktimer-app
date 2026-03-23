@@ -1,51 +1,49 @@
-interface BoundsLike {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-}
-
-interface PointLike {
-  x: number;
-  y: number;
-}
+import { BreakReminderDisplayMode } from "../../types/settings";
 
 interface DisplayLike {
   id: number;
-  bounds: BoundsLike;
 }
 
-function isPointInsideBounds(point: PointLike, bounds: BoundsLike): boolean {
-  return (
-    point.x >= bounds.x &&
-    point.x < bounds.x + bounds.width &&
-    point.y >= bounds.y &&
-    point.y < bounds.y + bounds.height
-  );
-}
-
-export function orderBreakDisplays<T extends DisplayLike>(
+function prioritizePrimaryDisplay<T extends DisplayLike>(
   displays: T[],
-  cursorPoint: PointLike,
+  primaryDisplayId: number,
 ): T[] {
-  if (displays.length <= 1) {
-    return [...displays];
-  }
-
-  const activeDisplay = displays.find((display) =>
-    isPointInsideBounds(cursorPoint, display.bounds),
+  const primaryDisplay = displays.find(
+    (display) => display.id === primaryDisplayId,
   );
 
-  if (!activeDisplay) {
+  if (!primaryDisplay) {
     return [...displays];
   }
 
   return [
-    ...displays.filter((display) => display.id !== activeDisplay.id),
-    activeDisplay,
+    primaryDisplay,
+    ...displays.filter((display) => display.id !== primaryDisplayId),
   ];
 }
 
 export function isInteractiveBreakWindow(windowIndex: number): boolean {
   return windowIndex === 0;
+}
+
+export function selectBreakDisplays<T extends DisplayLike>(
+  displays: T[],
+  primaryDisplayId: number,
+  mode: BreakReminderDisplayMode,
+): T[] {
+  switch (mode) {
+    case BreakReminderDisplayMode.MainMonitor:
+      return displays.filter((display) => display.id === primaryDisplayId);
+    case BreakReminderDisplayMode.SecondaryMonitors: {
+      const secondaryDisplays = displays.filter(
+        (display) => display.id !== primaryDisplayId,
+      );
+      return secondaryDisplays.length > 0
+        ? secondaryDisplays
+        : displays.filter((display) => display.id === primaryDisplayId);
+    }
+    case BreakReminderDisplayMode.AllMonitors:
+    default:
+      return prioritizePrimaryDisplay(displays, primaryDisplayId);
+  }
 }

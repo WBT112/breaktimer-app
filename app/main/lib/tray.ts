@@ -3,7 +3,7 @@ import log from "electron-log";
 import moment from "moment";
 import path from "path";
 import packageJson from "../../../package.json";
-import { TrayTextMode } from "../../types/settings";
+import { BreakReminderDisplayMode, TrayTextMode } from "../../types/settings";
 import {
   checkIdle,
   checkInWorkingHours,
@@ -205,6 +205,15 @@ export function buildTray(): void {
 
   const disableEndTime = getDisableEndTime();
 
+  const setReminderDisplayMode = (mode: BreakReminderDisplayMode): void => {
+    const latestSettings = getSettings();
+    setSettings({
+      ...latestSettings,
+      reminderDisplayMode: mode,
+    });
+    buildTray();
+  };
+
   const contextMenu = Menu.buildFromTemplate([
     {
       label: nextBreak,
@@ -275,6 +284,38 @@ export function buildTray(): void {
         log.info("Start break now selected");
         startBreakNow();
       },
+    },
+    {
+      label: "Reminder anzeigen auf",
+      submenu: [
+        {
+          label: "Hauptmonitor",
+          type: "radio",
+          checked:
+            settings.reminderDisplayMode ===
+            BreakReminderDisplayMode.MainMonitor,
+          click: () =>
+            setReminderDisplayMode(BreakReminderDisplayMode.MainMonitor),
+        },
+        {
+          label: "Sekundäre Monitore",
+          type: "radio",
+          checked:
+            settings.reminderDisplayMode ===
+            BreakReminderDisplayMode.SecondaryMonitors,
+          click: () =>
+            setReminderDisplayMode(BreakReminderDisplayMode.SecondaryMonitors),
+        },
+        {
+          label: "Alle Monitore",
+          type: "radio",
+          checked:
+            settings.reminderDisplayMode ===
+            BreakReminderDisplayMode.AllMonitors,
+          click: () =>
+            setReminderDisplayMode(BreakReminderDisplayMode.AllMonitors),
+        },
+      ],
     },
     { type: "separator" },
     { label: "Einstellungen...", click: createSettingsWindow },

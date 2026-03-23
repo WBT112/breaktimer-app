@@ -16,7 +16,7 @@ const store = new Store({
   defaults: {
     settings: defaultSettings,
     appInitialized: false,
-    settingsVersion: 6,
+    settingsVersion: 7,
     disableEndTime: null,
     breakCompletionHistory: {},
     breakEventLog: [],

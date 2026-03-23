@@ -294,6 +294,16 @@ const migrations: Migration[] = [
       return settings;
     },
   },
+  {
+    version: 7,
+    migrate: (settings) => {
+      if (typeof settings.reminderDisplayMode !== "string") {
+        settings.reminderDisplayMode = "ALL_MONITORS";
+      }
+
+      return settings;
+    },
+  },
 ];
 
 export function migrateSettingsObject(

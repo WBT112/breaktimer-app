@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { NotificationType, SoundType } from "../types/settings";
+import {
+  BreakReminderDisplayMode,
+  NotificationType,
+  SoundType,
+} from "../types/settings";
 import { migrateSettingsObject } from "../main/lib/settings-migrations";
 
 describe("settings migrations", () => {
@@ -62,7 +66,7 @@ describe("settings migrations", () => {
 
     const migrated = migrateSettingsObject(legacySettings, 2);
 
-    expect(migrated.version).toBe(6);
+    expect(migrated.version).toBe(7);
     expect(migrated.settings.breakDefinitions).toHaveLength(1);
     expect(migrated.settings.breakDefinitions[0]).toMatchObject({
       categoryId: "general",
@@ -85,6 +89,9 @@ describe("settings migrations", () => {
     });
     expect(migrated.settings.customBreakCategories).toEqual([]);
     expect(migrated.settings.breakCategoryGoals).toEqual([]);
+    expect(migrated.settings.reminderDisplayMode).toBe(
+      BreakReminderDisplayMode.AllMonitors,
+    );
     expect("notificationType" in migrated.settings).toBe(false);
     expect("breakFrequencySeconds" in migrated.settings).toBe(false);
     expect("breakTitle" in migrated.settings).toBe(false);

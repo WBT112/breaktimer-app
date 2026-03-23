@@ -4,7 +4,7 @@ import path from "path";
 import { endPopupBreak } from "./breaks";
 import {
   isInteractiveBreakWindow,
-  orderBreakDisplays,
+  selectBreakDisplays,
 } from "./break-window-placement";
 import { getSettings } from "./store";
 
@@ -111,9 +111,10 @@ export function createBreakWindows(): void {
   const notificationWidth =
     450 + (buttonCount - 1) * 50 + (buttonCount === 3 ? 20 : 0);
 
-  const displays = orderBreakDisplays(
+  const displays = selectBreakDisplays(
     screen.getAllDisplays(),
-    screen.getCursorScreenPoint(),
+    screen.getPrimaryDisplay().id,
+    settings.reminderDisplayMode,
   );
   for (let windowIndex = 0; windowIndex < displays.length; windowIndex++) {
     const display = displays[windowIndex];
