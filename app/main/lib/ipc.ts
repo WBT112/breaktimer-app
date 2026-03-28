@@ -31,7 +31,7 @@ import {
   resetLocalData,
 } from "./store";
 import { buildTray } from "./tray";
-import { getWindows } from "./windows";
+import { getBreakWindowDisplay, getWindows } from "./windows";
 
 export function sendIpc(channel: IpcChannel, ...args: unknown[]): void {
   const windows: BrowserWindow[] = getWindows();
@@ -157,7 +157,9 @@ ipcMain.handle(
     log.info(IpcChannel.BreakWindowResize);
     const window = BrowserWindow.fromWebContents(event.sender);
     if (window) {
-      const display = screen.getDisplayNearestPoint(window.getBounds());
+      const display =
+        getBreakWindowDisplay(window) ??
+        screen.getDisplayNearestPoint(window.getBounds());
       const settings = getSettings();
 
       if (size) {

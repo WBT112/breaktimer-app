@@ -4,6 +4,7 @@ import path from "path";
 import { endPopupBreak } from "./breaks";
 import {
   isInteractiveBreakWindow,
+  resolveBreakDisplay,
   selectBreakDisplays,
 } from "./break-window-placement";
 import { getSettings } from "./store";
@@ -11,6 +12,7 @@ import { getSettings } from "./store";
 let settingsWindow: BrowserWindow | null = null;
 let soundsWindow: BrowserWindow | null = null;
 let breakWindows: BrowserWindow[] = [];
+const breakWindowDisplayIds = new Map<number, number>();
 
 const getBrowserWindowUrl = (
   page: "settings" | "sounds" | "break",
@@ -37,6 +39,13 @@ export function getWindows(): BrowserWindow[] {
   }
   windows.push(...breakWindows);
   return windows;
+}
+
+export function getBreakWindowDisplay(window: BrowserWindow) {
+  const displays = screen.getAllDisplays();
+  const assignedDisplayId = breakWindowDisplayIds.get(window.id) ?? null;
+
+  return resolveBreakDisplay(displays, assignedDisplayId, window.getBounds());
 }
 
 export function createSettingsWindow(): void {
@@ -155,6 +164,7 @@ export function createBreakWindows(): void {
     }
 
     breakWindow.loadURL(getBrowserWindowUrl("break", windowIndex));
+    breakWindowDisplayIds.set(breakWindow.id, display.id);
 
     breakWindow.on("ready-to-show", () => {
       if (!breakWindow) {
@@ -170,6 +180,8 @@ export function createBreakWindows(): void {
     });
 
     breakWindow.on("closed", () => {
+      breakWindowDisplayIds.delete(breakWindow.id);
+
       if (process.platform === "darwin") {
         // Ensure that focus is returned to the previous app when break windows
         // close.
@@ -186,6 +198,7 @@ export function createBreakWindows(): void {
         }
       }
       breakWindows = [];
+      breakWindowDisplayIds.clear();
       endPopupBreak();
     });
 

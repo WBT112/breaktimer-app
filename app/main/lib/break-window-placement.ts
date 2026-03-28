@@ -4,6 +4,15 @@ interface DisplayLike {
   id: number;
 }
 
+interface DisplayBoundsLike extends DisplayLike {
+  bounds: {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  };
+}
+
 function prioritizePrimaryDisplay<T extends DisplayLike>(
   displays: T[],
   primaryDisplayId: number,
@@ -46,4 +55,35 @@ export function selectBreakDisplays<T extends DisplayLike>(
     default:
       return prioritizePrimaryDisplay(displays, primaryDisplayId);
   }
+}
+
+export function resolveBreakDisplay<T extends DisplayBoundsLike>(
+  displays: T[],
+  assignedDisplayId: number | null,
+  windowBounds: { x: number; y: number },
+): T | null {
+  if (assignedDisplayId !== null) {
+    const assignedDisplay = displays.find(
+      (display) => display.id === assignedDisplayId,
+    );
+
+    if (assignedDisplay) {
+      return assignedDisplay;
+    }
+  }
+
+  return (
+    displays.find((display) => {
+      const { x, y, width, height } = display.bounds;
+
+      return (
+        windowBounds.x >= x &&
+        windowBounds.x < x + width &&
+        windowBounds.y >= y &&
+        windowBounds.y < y + height
+      );
+    }) ??
+    displays[0] ??
+    null
+  );
 }
