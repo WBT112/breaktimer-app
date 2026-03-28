@@ -1,3 +1,5 @@
+import { BreakOccurrenceSource } from "../../../types/breaks";
+
 export function formatTimeSinceLastBreak(seconds: number): string {
   const hours = Math.floor(seconds / 3600);
   const minutes = Math.floor((seconds % 3600) / 60);
@@ -79,9 +81,9 @@ export function isPrimaryBreakWindow(windowId: string | null): boolean {
 
 export function shouldSkipBreakCountdown(
   immediatelyStartBreaks: boolean,
-  startedFromTray: boolean,
+  occurrenceSource: BreakOccurrenceSource | null,
 ): boolean {
-  return immediatelyStartBreaks || startedFromTray;
+  return immediatelyStartBreaks || occurrenceSource === "manual";
 }
 
 export function getBreakNotificationPhase(
@@ -98,6 +100,14 @@ export function getBreakNotificationPhase(
     return {
       phase: "grace",
       msRemaining: totalCountdownMs - gracePeriodMs,
+      shouldAutoStart: false,
+    };
+  }
+
+  if (!autoStartBreaksAfterCountdown) {
+    return {
+      phase: "ready",
+      msRemaining: 0,
       shouldAutoStart: false,
     };
   }

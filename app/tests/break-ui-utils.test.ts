@@ -8,8 +8,8 @@ import {
   shouldShowEndBreakButton,
 } from "../renderer/components/break/utils";
 describe("break ui utils", () => {
-  it("stops at a ready state when automatic break start after countdown is disabled", () => {
-    const phase = getBreakNotificationPhase(120000, false, 60000, 120000);
+  it("stops at a ready state immediately after the hint phase when automatic break start is disabled", () => {
+    const phase = getBreakNotificationPhase(60000, false, 60000, 120000);
 
     expect(phase).toEqual({
       phase: "ready",
@@ -35,9 +35,11 @@ describe("break ui utils", () => {
   });
 
   it("skips the notification countdown for immediate or tray-started breaks", () => {
-    expect(shouldSkipBreakCountdown(true, false)).toBe(true);
-    expect(shouldSkipBreakCountdown(false, true)).toBe(true);
-    expect(shouldSkipBreakCountdown(false, false)).toBe(false);
+    expect(shouldSkipBreakCountdown(true, "scheduled")).toBe(true);
+    expect(shouldSkipBreakCountdown(false, "manual")).toBe(true);
+    expect(shouldSkipBreakCountdown(false, "snoozed")).toBe(false);
+    expect(shouldSkipBreakCountdown(false, "scheduled")).toBe(false);
+    expect(shouldSkipBreakCountdown(false, null)).toBe(false);
   });
 
   it("treats window 0 and missing ids as the primary break window", () => {

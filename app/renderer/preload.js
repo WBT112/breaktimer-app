@@ -54,9 +54,6 @@ process.once("loaded", () => {
     invokeCompleteBreakTracking: (breakDurationMs) => {
       return ipcRenderer.invoke("BREAK_TRACKING_COMPLETE", breakDurationMs);
     },
-    invokeWasStartedFromTray: () => {
-      return ipcRenderer.invoke("WAS_STARTED_FROM_TRAY_GET");
-    },
     invokeGetAppInitialized: () => {
       return ipcRenderer.invoke("APP_INITIALIZED_GET");
     },

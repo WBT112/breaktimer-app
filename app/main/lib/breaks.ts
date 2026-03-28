@@ -239,7 +239,6 @@ let havingBreak = false;
 let idleStart: Date | null = null;
 let lockStart: Date | null = null;
 let lastTick: Date | null = null;
-let startedFromTray = false;
 
 let lastCompletedBreakTime: Date | null = new Date();
 let lastBreakGapTime: Date | null = null;
@@ -724,7 +723,7 @@ function startBreakForOccurrence(occurrence: ScheduledBreakOccurrence): void {
   if (
     definition.notificationType === NotificationType.Notification ||
     settings.immediatelyStartBreaks ||
-    startedFromTray
+    occurrence.source === "manual"
   ) {
     startBreakTracking();
   }
@@ -745,7 +744,6 @@ function startBreakForOccurrence(occurrence: ScheduledBreakOccurrence): void {
     );
     activeBreakContext = null;
     havingBreak = false;
-    startedFromTray = false;
     currentBreakStartTime = null;
     buildTray();
     startNextDueOccurrence();
@@ -965,7 +963,6 @@ export function endPopupBreak(): void {
 
   log.info("Break ended");
   havingBreak = false;
-  startedFromTray = false;
   activeBreakContext = null;
   currentBreakStartTime = null;
 
@@ -1040,7 +1037,6 @@ export function postponeBreak(action = "snoozed"): void {
   }
 
   activeBreakContext = null;
-  startedFromTray = false;
   buildTray();
   startNextDueOccurrence();
 }
@@ -1074,7 +1070,6 @@ export function startBreakNow(): void {
     return;
   }
 
-  startedFromTray = true;
   const manualOccurrence: ScheduledBreakOccurrence = {
     ...occurrence,
     dueAtMs: Date.now(),
@@ -1089,10 +1084,6 @@ export function startBreakNow(): void {
     ),
   );
   startBreakForOccurrence(manualOccurrence);
-}
-
-export function wasStartedFromTray(): boolean {
-  return startedFromTray;
 }
 
 function tick(): void {
@@ -1167,7 +1158,6 @@ export function initBreaks(): void {
   if (!havingBreak) {
     activeBreakContext = null;
     currentBreakStartTime = null;
-    startedFromTray = false;
   }
 
   const settings = getSettings();

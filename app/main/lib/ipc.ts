@@ -20,7 +20,6 @@ import {
   getTimeSinceLastBreak,
   postponeBreak,
   startBreakTracking,
-  wasStartedFromTray,
 } from "./breaks";
 import {
   getSettings,
@@ -203,11 +202,6 @@ ipcMain.handle(
     completeBreakTracking(breakDurationMs);
   },
 );
-
-ipcMain.handle(IpcChannel.WasStartedFromTrayGet, (): boolean => {
-  log.info(IpcChannel.WasStartedFromTrayGet);
-  return wasStartedFromTray();
-});
 
 ipcMain.handle(IpcChannel.AppInitializedGet, (): boolean => {
   log.info(IpcChannel.AppInitializedGet);

@@ -19,7 +19,6 @@ declare const ipcRenderer: {
   }) => Promise<void>;
   invokeGetTimeSinceLastBreak: () => Promise<number | null>;
   invokeCompleteBreakTracking: (breakDurationMs: number) => Promise<void>;
-  invokeWasStartedFromTray: () => Promise<boolean>;
   invokeGetAppInitialized: () => Promise<boolean>;
   invokeSetAppInitialized: () => Promise<void>;
   invokeBreakStart: () => Promise<void>;
