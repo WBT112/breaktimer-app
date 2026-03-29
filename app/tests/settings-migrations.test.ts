@@ -66,7 +66,7 @@ describe("settings migrations", () => {
 
     const migrated = migrateSettingsObject(legacySettings, 2);
 
-    expect(migrated.version).toBe(8);
+    expect(migrated.version).toBe(9);
     expect(migrated.settings.breakDefinitions).toHaveLength(1);
     expect(migrated.settings.breakDefinitions[0]).toMatchObject({
       categoryId: "general",
@@ -96,5 +96,47 @@ describe("settings migrations", () => {
     expect("notificationType" in migrated.settings).toBe(false);
     expect("breakFrequencySeconds" in migrated.settings).toBe(false);
     expect("breakTitle" in migrated.settings).toBe(false);
+  });
+
+  it("re-enables migrated break definitions when global breaks stay enabled", () => {
+    const migrated = migrateSettingsObject(
+      {
+        breaksEnabled: true,
+        breakDefinitions: [
+          {
+            id: "break-1",
+            enabled: false,
+          },
+          {
+            id: "break-2",
+            enabled: false,
+          },
+        ],
+      },
+      8,
+    );
+
+    expect(migrated.version).toBe(9);
+    expect(
+      migrated.settings.breakDefinitions.map(({ enabled }) => enabled),
+    ).toEqual([true, true]);
+  });
+
+  it("keeps disabled break definitions untouched when global breaks are disabled", () => {
+    const migrated = migrateSettingsObject(
+      {
+        breaksEnabled: false,
+        breakDefinitions: [
+          {
+            id: "break-1",
+            enabled: false,
+          },
+        ],
+      },
+      8,
+    );
+
+    expect(migrated.version).toBe(9);
+    expect(migrated.settings.breakDefinitions[0].enabled).toBe(false);
   });
 });

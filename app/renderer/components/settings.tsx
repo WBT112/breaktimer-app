@@ -5,12 +5,7 @@ import {
   BreakStatisticsSnapshot,
   StatisticsRangeKey,
 } from "../../types/statistics";
-import {
-  BreakDefinition,
-  normalizeSettings,
-  Settings,
-  TrayTextMode,
-} from "../../types/settings";
+import { BreakDefinition, Settings, TrayTextMode } from "../../types/settings";
 import { toast } from "../toaster";
 import AdvancedCard from "./settings/advanced-card";
 import BackdropCard from "./settings/backdrop-card";
@@ -124,16 +119,10 @@ export default function SettingsEl() {
   };
 
   const handleSwitchChange = (field: string, checked: boolean): void => {
-    const nextSettingsDraft = {
+    setSettingsDraft({
       ...settingsDraft,
       [field]: checked,
-    };
-
-    setSettingsDraft(
-      field === "breaksEnabled" && !checked
-        ? normalizeSettings(nextSettingsDraft)
-        : nextSettingsDraft,
-    );
+    });
   };
 
   const handleResetColors = (): void => {

@@ -228,7 +228,6 @@ export function normalizeSettings(settings: Settings): Settings {
       categoryId: validCategoryIds.has(breakDefinition.categoryId)
         ? breakDefinition.categoryId
         : DEFAULT_BREAK_CATEGORY_ID,
-      enabled: settings.breaksEnabled ? breakDefinition.enabled : false,
     }),
   );
 

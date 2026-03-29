@@ -314,6 +314,28 @@ const migrations: Migration[] = [
       return settings;
     },
   },
+  {
+    version: 9,
+    migrate: (settings) => {
+      if (
+        settings.breaksEnabled === true &&
+        Array.isArray(settings.breakDefinitions) &&
+        settings.breakDefinitions.length > 0 &&
+        settings.breakDefinitions.every(
+          (breakDefinition) => breakDefinition.enabled === false,
+        )
+      ) {
+        settings.breakDefinitions = settings.breakDefinitions.map(
+          (breakDefinition) => ({
+            ...breakDefinition,
+            enabled: true,
+          }),
+        );
+      }
+
+      return settings;
+    },
+  },
 ];
 
 export function migrateSettingsObject(

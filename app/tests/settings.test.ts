@@ -8,7 +8,7 @@ import {
 } from "../types/settings";
 
 describe("settings helpers", () => {
-  it("disables all break definitions when breaks are globally disabled", () => {
+  it("keeps individual break states when breaks are globally disabled", () => {
     const settings = {
       ...defaultSettings,
       breaksEnabled: false,
@@ -24,10 +24,8 @@ describe("settings helpers", () => {
     const normalizedSettings = normalizeSettings(settings);
 
     expect(
-      normalizedSettings.breakDefinitions.every(
-        (breakDefinition) => breakDefinition.enabled === false,
-      ),
-    ).toBe(true);
+      normalizedSettings.breakDefinitions.map(({ enabled }) => enabled),
+    ).toEqual([true, true]);
   });
 
   it("keeps individual break states unchanged when breaks stay globally enabled", () => {
